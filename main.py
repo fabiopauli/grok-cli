@@ -111,7 +111,7 @@ def main_loop(config: Config, client: Client, command_registry, tool_executor) -
             # Get user input
             conversation_history = session.get_conversation_history()
             prompt_indicator = get_prompt_indicator(conversation_history, session.model)
-            user_input = prompt_session.prompt(f"{prompt_indicator} You: ")
+            user_input = prompt_session.prompt(f"{prompt_indicator} - Your message: ")
             
             if not user_input.strip():
                 continue
@@ -145,7 +145,7 @@ def main_loop(config: Config, client: Client, command_registry, tool_executor) -
                 
                 # Display assistant response if it has content
                 if hasattr(response, 'content') and response.content:
-                    console.print(f"\n{response.content}\n")
+                    console.print(f"\nAssistant message: {response.content}\n")
                 
                 # Get the next response from the model to analyze tool results
                 if step_count < max_steps:
@@ -162,7 +162,7 @@ def main_loop(config: Config, client: Client, command_registry, tool_executor) -
             
             # Display final response (without tool calls)
             if hasattr(response, 'content') and response.content:
-                console.print(f"\n{response.content}\n")
+                console.print(f"\nAssistant message: {response.content}\n")
         
         except KeyboardInterrupt:
             console.print("\n[yellow]Interrupted by user.[/yellow]")

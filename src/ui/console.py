@@ -60,11 +60,11 @@ def get_prompt_indicator(conversation_history: List[Dict[str, Any]], current_mod
     # Count messages (excluding system messages)
     user_messages = sum(1 for msg in conversation_history if msg["role"] == "user")
     
-    # Model indicator
+    # Model indicator - show full model name
     if current_model.endswith("4"):
-        model_indicator = "R"  # R for reasoner
+        model_indicator = "Grok-4"
     else:
-        model_indicator = "G"  # G for grok
+        model_indicator = "Grok-3"
     
     # Message count
     if user_messages == 0:
