@@ -151,9 +151,10 @@ class FolderCommand(BaseCommand):
         return user_input.strip().lower().startswith("/folder ")
     
     def execute(self, user_input: str, session: GrokSession) -> CommandResult:
-        from ..ui.console import get_console
+        from ..ui.console import get_console, get_prompt_session
         
         console = get_console()
+        prompt_session = get_prompt_session()
         folder_path = user_input[len("/folder "):].strip()
         
         # Handle special cases
@@ -184,12 +185,46 @@ class FolderCommand(BaseCommand):
             console.print(f"[bold red]✗[/bold red] Error accessing directory: {e}")
             return CommandResult.failure(str(e))
         
-        # Update working directory
+        # Handle memory integration before changing directory
+        memory_manager = session.get_memory_manager()
+        has_existing_memories = memory_manager.has_directory_memories(new_path)
+        
+        if has_existing_memories:
+            # Directory has existing memories - ask user if they want to use them
+            memory_count = len(memory_manager.get_directory_memories(new_path))
+            console.print(f"[yellow]Found {memory_count} existing memories in target directory.[/yellow]")
+            
+            use_memories = prompt_session.prompt("Use existing memories? (Y/n): ", default="y").strip().lower()
+            
+            if use_memories in ['n', 'no']:
+                # User chose not to use existing memories
+                console.print("[dim]Existing memories will not be loaded.[/dim]")
+        else:
+            # Directory has no memories - ask if user wants to create new memory set
+            create_memories = prompt_session.prompt("Create new memory set for this directory? (y/N): ", default="n").strip().lower()
+            
+            if create_memories in ['y', 'yes']:
+                # Initialize empty memory set for the directory
+                memory_manager.initialize_directory_memories(new_path)
+                console.print("[green]✓ Initialized new memory set for directory[/green]")
+        
+        # Update working directory (this will handle memory switching)
         old_path = self.config.base_dir
-        session.update_working_directory(new_path)
+        memory_info = session.update_working_directory(new_path)
         
         console.print(f"[bold green]✓[/bold green] Changed working directory")
         console.print(f"[dim]From:[/dim] [bright_cyan]{old_path}[/bright_cyan]")
         console.print(f"[dim]To:[/dim] [bright_cyan]{new_path}[/bright_cyan]")
+        
+        # Show memory status
+        if memory_info:
+            current_memories = memory_manager.get_directory_memories()
+            global_memories = memory_manager.get_global_memories()
+            
+            if current_memories or global_memories:
+                console.print(f"[dim]Loaded {len(current_memories)} directory + {len(global_memories)} global memories[/dim]")
+            
+            if memory_info.get("has_existing_memories"):
+                console.print("[dim]Using existing directory memories[/dim]")
         
         return CommandResult.success()

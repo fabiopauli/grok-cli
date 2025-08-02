@@ -8,6 +8,7 @@ from .base import BaseCommand, CommandResult, CommandRegistry
 from .system_commands import ExitCommand, ClearCommand, HelpCommand, OsCommand, FuzzyCommand
 from .file_commands import AddCommand, RemoveCommand, FolderCommand
 from .context_commands import ClearContextCommand, ContextCommand, LogCommand, ReasonerCommand, OneTimeReasonerCommand, DefaultModelCommand
+from .memory_commands import MemoryCommand
 
 from ..core.config import Config
 
@@ -43,6 +44,9 @@ def create_command_registry(config: Config) -> CommandRegistry:
     registry.register(ReasonerCommand(config))
     registry.register(OneTimeReasonerCommand(config))
     registry.register(DefaultModelCommand(config))
+    
+    # Memory commands
+    registry.register(MemoryCommand(config))
     
     return registry
 

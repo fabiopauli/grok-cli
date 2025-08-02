@@ -16,15 +16,16 @@ from xai_sdk.chat import user, system, assistant, tool_result
 
 # Local imports
 from .config import Config
+from .context_manager import ContextManager, ContextMode
+from .memory_manager import MemoryManager
 
 
 class GrokSession:
     """
     Centralized session management for Grok conversations.
     
-    This class encapsulates all conversation state and eliminates the need
-    for dual conversation tracking (conversation_history + main_chat).
-    Uses dependency injection instead of global state.
+    Enhanced with turn-based context management and persistent memory system.
+    Provides dual-mode operation and directory-aware memory storage.
     """
     
     def __init__(self, client: Client, config: Config):
@@ -41,16 +42,22 @@ class GrokSession:
         self.is_reasoner = config.is_reasoner
         self._use_reasoner_next = False
         
-        # Initialize conversation history with system prompt
-        self.history: List[Dict[str, Any]] = [
-            {"role": "system", "content": self.config.get_system_prompt()}
-        ]
+        # Initialize new turn-based and memory systems
+        self.memory_manager = MemoryManager(config)
+        self.context_manager = ContextManager(config)
+        
+        # Set memories in context manager
+        memories = self.memory_manager.get_memories_for_context()
+        self.context_manager.set_memories(memories)
+        
+        # Initialize conversation history (legacy support)
+        self.history: List[Dict[str, Any]] = []
         
         # Add initial context
         self._add_initial_context()
         
         # Create chat instance
-        self.chat_instance = self._rebuild_chat_instance()
+        self.chat_instance = self._create_chat_instance_from_context()
         
         # Track if we need to rebuild chat (for model changes)
         self._needs_rebuild = False
@@ -59,19 +66,17 @@ class GrokSession:
         """Add initial project and environment context to conversation."""
         # Add directory structure
         dir_summary = self._get_directory_tree_summary(self.config.base_dir)
-        self.history.append({
-            "role": "system",
-            "content": f"Project directory structure at startup:\n\n{dir_summary}"
-        })
+        self.context_manager.add_system_message(
+            f"Project directory structure at startup:\n\n{dir_summary}"
+        )
         
         # Add OS and shell info
         shell_status = ", ".join([f"{shell}({'✓' if available else '✗'})" 
                                  for shell, available in self.config.os_info['shell_available'].items()])
-        self.history.append({
-            "role": "system",
-            "content": f"Runtime environment: {self.config.os_info['system']} {self.config.os_info['release']}, "
-                      f"Python {self.config.os_info['python_version']}, Shells: {shell_status}"
-        })
+        self.context_manager.add_system_message(
+            f"Runtime environment: {self.config.os_info['system']} {self.config.os_info['release']}, "
+            f"Python {self.config.os_info['python_version']}, Shells: {shell_status}"
+        )
     
     def _get_directory_tree_summary(self, base_dir: Path) -> str:
         """Get a summary of directory tree structure."""
@@ -79,15 +84,18 @@ class GrokSession:
         from ..utils.path_utils import get_directory_tree_summary
         return get_directory_tree_summary(base_dir, self.config)
     
-    def _rebuild_chat_instance(self):
-        """Rebuild chat instance from conversation history."""
+    def _create_chat_instance_from_context(self):
+        """Create chat instance from context manager."""
         return self._create_chat_instance(self.model)
     
     def _create_chat_instance(self, model: str):
         """Create a chat instance with the specified model."""
         chat = self.client.chat.create(model=model, tools=self.config.get_tools())
         
-        for message in self.history:
+        # Get context from context manager
+        context_messages = self.context_manager.get_context_for_api()
+        
+        for message in context_messages:
             if message["role"] == "system":
                 chat.append(system(message["content"]))
             elif message["role"] == "user":
@@ -101,25 +109,32 @@ class GrokSession:
     
     def add_message(self, role: str, content: str, **kwargs) -> None:
         """
-        Add a message to the conversation history.
+        Add a message to the conversation history (legacy method).
         
         Args:
             role: Message role ('user', 'assistant', 'system', 'tool')
             content: Message content
             **kwargs: Additional message properties (e.g., tool_calls, tool_call_id)
         """
+        # For backward compatibility, delegate to context manager
+        if role == "user":
+            self.start_turn(content)
+        elif role == "assistant":
+            tool_calls = kwargs.get("tool_calls")
+            self.context_manager.add_assistant_message(content, tool_calls)
+        elif role == "tool":
+            # For tool messages, we need the tool name - try to extract or use default
+            tool_name = kwargs.get("tool_name", "unknown_tool")
+            self.context_manager.add_tool_response(tool_name, content)
+        elif role == "system":
+            self.context_manager.add_system_message(content)
+        
+        # Also add to legacy history for compatibility
         message = {"role": role, "content": content, **kwargs}
         self.history.append(message)
         
-        # Append to chat instance based on role
-        if role == "system":
-            self.chat_instance.append(system(content))
-        elif role == "user":
-            self.chat_instance.append(user(content))
-        elif role == "assistant":
-            self.chat_instance.append(assistant(content))
-        elif role == "tool":
-            self.chat_instance.append(tool_result(content))
+        # Rebuild chat instance
+        self.chat_instance = self._create_chat_instance_from_context()
     
     def switch_model(self, new_model: str) -> None:
         """
@@ -137,7 +152,7 @@ class GrokSession:
             self.model = new_model
             self.is_reasoner = new_model == self.config.reasoner_model
             self.config.set_model(new_model)
-            self.chat_instance = self._rebuild_chat_instance()
+            self.chat_instance = self._create_chat_instance_from_context()
     
     def get_response(self, use_reasoner: bool = False) -> Any:
         """
@@ -174,34 +189,9 @@ class GrokSession:
     
     def _manage_context(self) -> None:
         """Manage context size and apply truncation if needed."""
-        # Import here to avoid circular imports
-        from ..utils.text_utils import get_context_usage_info, smart_truncate_history
-        from ..ui.console import get_console
-        
-        console = get_console()
-        context_info = get_context_usage_info(self.history, self.model, self.config)
-        
-        # Automatic sliding window management
-        if context_info["estimated_tokens"] > context_info["max_tokens"]:
-            console.print(f"[red]⚠ Context exceeds limit: {context_info['token_usage_percent']:.1f}% used. Auto-applying sliding window...[/red]")
-            self.history = smart_truncate_history(self.history, self.model, self.config)
-            self.chat_instance = self._rebuild_chat_instance()
-            
-            # Recalculate and report
-            context_info = get_context_usage_info(self.history, self.model, self.config)
-            console.print(f"[green]✓ Context optimized: {context_info['token_usage_percent']:.1f}% used[/green]")
-            
-        elif context_info["critical_limit"]:
-            console.print(f"[red]⚠ Context critical: {context_info['token_usage_percent']:.1f}% used. Auto-truncating history...[/red]")
-            self.history = smart_truncate_history(self.history, self.model, self.config)
-            self.chat_instance = self._rebuild_chat_instance()
-            
-            # Recalculate and report
-            context_info = get_context_usage_info(self.history, self.model, self.config)
-            console.print(f"[green]✓ Context optimized: {context_info['token_usage_percent']:.1f}% used[/green]")
-            
-        elif context_info["approaching_limit"] and len(self.history) % 20 == 0:
-            console.print(f"[yellow]⚠ Context high: {context_info['token_usage_percent']:.1f}% used. Use /context for details.[/yellow]")
+        # Context management is now handled by the context manager
+        # This method is kept for backward compatibility
+        pass
     
     def update_working_directory(self, new_base_dir: Path) -> None:
         """
@@ -224,8 +214,23 @@ class GrokSession:
         dir_summary = self._get_directory_tree_summary(new_base_dir)
         self.add_message("system", f"Working directory changed to: {new_base_dir}\n\nNew directory structure:\n\n{dir_summary}")
         
+        # Update memory manager with new directory
+        memory_info = self.memory_manager.change_directory(new_base_dir)
+        
+        # Update context manager with new memories
+        memories = self.memory_manager.get_memories_for_context()
+        self.context_manager.set_memories(memories)
+        
+        # Add directory change notification to conversation context
+        dir_summary = self._get_directory_tree_summary(new_base_dir)
+        self.context_manager.add_system_message(
+            f"Working directory changed to: {new_base_dir}\n\nNew directory structure:\n\n{dir_summary}"
+        )
+        
         # Rebuild chat instance to include updated context
-        self.chat_instance = self._rebuild_chat_instance()
+        self.chat_instance = self._create_chat_instance_from_context()
+        
+        return memory_info
     
     def clear_context(self, keep_system_prompt: bool = True) -> None:
         """
@@ -234,26 +239,29 @@ class GrokSession:
         Args:
             keep_system_prompt: Whether to keep the system prompt
         """
+        # Clear context manager
+        self.context_manager.clear_context(keep_memories=True)
+        
+        # Clear legacy history for compatibility
         if keep_system_prompt and self.history:
-            # Keep system prompt and rebuild with fresh context
             original_system_prompt = self.history[0]
             self.history = [original_system_prompt]
             self._add_initial_context()
         else:
-            # Complete clear
             self.history = []
+            self._add_initial_context()
         
         # Rebuild chat instance
-        self.chat_instance = self._rebuild_chat_instance()
+        self.chat_instance = self._create_chat_instance_from_context()
     
     def get_context_info(self) -> Dict[str, Any]:
         """Get current context usage information."""
-        from ..utils.text_utils import get_context_usage_info
-        return get_context_usage_info(self.history, self.model, self.config)
+        return self.context_manager.get_context_stats()
     
     def get_conversation_history(self) -> List[Dict[str, Any]]:
         """Get a copy of the conversation history."""
-        return self.history.copy()
+        # Return context from context manager
+        return self.context_manager.get_context_for_api()
     
     def get_model_info(self) -> Dict[str, Any]:
         """Get current model information."""
@@ -272,3 +280,99 @@ class GrokSession:
         """Disable fuzzy matching for the current session."""
         self.config.fuzzy_enabled_by_default = False
         self.add_message("system", "Fuzzy matching disabled for file operations in this session.")
+    
+    # New turn-based methods
+    
+    def start_turn(self, user_message: str) -> str:
+        """
+        Start a new conversation turn.
+        
+        Args:
+            user_message: User message that starts the turn
+            
+        Returns:
+            Turn ID for the new turn
+        """
+        return self.context_manager.start_turn(user_message)
+    
+    def add_assistant_response(self, content: str, tool_calls: Optional[List[Dict[str, Any]]] = None) -> None:
+        """
+        Add an assistant response to the current turn.
+        
+        Args:
+            content: Assistant response content
+            tool_calls: Optional tool calls made by the assistant
+        """
+        self.context_manager.add_assistant_message(content, tool_calls)
+    
+    def add_tool_call(self, tool_name: str, args: Dict[str, Any]) -> None:
+        """
+        Add a tool call to the current turn.
+        
+        Args:
+            tool_name: Name of the tool being called
+            args: Tool arguments
+        """
+        self.context_manager.add_tool_call(tool_name, args)
+    
+    def add_tool_result(self, tool_name: str, result: str) -> None:
+        """
+        Add a tool result to the current turn.
+        
+        Args:
+            tool_name: Name of the tool
+            result: Tool execution result
+        """
+        self.context_manager.add_tool_response(tool_name, result)
+    
+    def complete_turn(self, summary: Optional[str] = None) -> Optional[Any]:
+        """
+        Complete the current turn.
+        
+        Args:
+            summary: Optional summary of what was accomplished
+            
+        Returns:
+            The completed turn if one was active
+        """
+        return self.context_manager.complete_turn(summary)
+    
+    def set_context_mode(self, mode: str) -> None:
+        """
+        Set the context management mode.
+        
+        Args:
+            mode: Context mode ('cache_optimized' or 'smart_truncation')
+        """
+        if mode == "cache_optimized":
+            self.context_manager.set_mode(ContextMode.CACHE_OPTIMIZED)
+        elif mode == "smart_truncation":
+            self.context_manager.set_mode(ContextMode.SMART_TRUNCATION)
+        else:
+            raise ValueError(f"Invalid context mode: {mode}")
+    
+    def get_context_mode(self) -> str:
+        """Get the current context management mode."""
+        return self.context_manager.get_mode().value
+    
+    def get_memory_manager(self) -> MemoryManager:
+        """Get the memory manager instance."""
+        return self.memory_manager
+    
+    def handle_directory_memory_prompt(self, new_directory: Path) -> Dict[str, Any]:
+        """
+        Handle memory prompts when changing directories.
+        
+        Args:
+            new_directory: New directory being switched to
+            
+        Returns:
+            Dictionary with memory information and prompts
+        """
+        has_memories = self.memory_manager.has_directory_memories(new_directory)
+        
+        return {
+            "has_existing_memories": has_memories,
+            "memory_count": len(self.memory_manager.get_directory_memories(new_directory)) if has_memories else 0,
+            "should_prompt_user": True
+        }

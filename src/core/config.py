@@ -469,4 +469,29 @@ Remember: You're a senior engineer - be thoughtful, precise, and explain your re
                     "required": ["command"],
                 },
             ),
+            tool(
+                name="save_memory",
+                description="Save important information that should persist across conversations and context truncations. Use this for user preferences, architectural decisions, important facts, and project context that you want to remember.",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "content": {
+                            "type": "string",
+                            "description": "Important information to remember. Be concise but specific.",
+                        },
+                        "type": {
+                            "type": "string",
+                            "enum": ["user_preference", "architectural_decision", "important_fact", "project_context"],
+                            "description": "Type of memory: user_preference (user's preferred tools/patterns), architectural_decision (project structure/tech choices), important_fact (critical project info), project_context (specific constraints/requirements)",
+                        },
+                        "scope": {
+                            "type": "string",
+                            "enum": ["directory", "global"],
+                            "default": "directory",
+                            "description": "Memory scope: 'directory' for current project only, 'global' for all projects",
+                        },
+                    },
+                    "required": ["content", "type"],
+                },
+            ),
         ]
