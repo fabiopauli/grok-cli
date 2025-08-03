@@ -28,9 +28,9 @@ class Config:
     config_file: Optional[Path] = None
     
     # Model settings
-    default_model: str = "grok-3"
+    default_model: str = "grok-3-mini"
     reasoner_model: str = "grok-4"
-    current_model: str = "grok-3"
+    current_model: str = "grok-3-mini"
     is_reasoner: bool = False
     
     # File limits
@@ -72,6 +72,7 @@ class Config:
     ADD_COMMAND_PREFIX: str = "/add "
     MODEL_CONTEXT_LIMITS: Dict[str, int] = field(default_factory=lambda: {
         "grok-3": 128000,
+        "grok-3-mini": 128000,
         "grok-4": 128000,
     })
     
