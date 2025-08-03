@@ -5,9 +5,9 @@ Contains command handlers implementing the command pattern.
 """
 
 from .base import BaseCommand, CommandResult, CommandRegistry
-from .system_commands import ExitCommand, ClearCommand, HelpCommand, OsCommand, FuzzyCommand
+from .system_commands import ExitCommand, ClearScreenCommand, ClearContextCommand, HelpCommand, OsCommand, FuzzyCommand
 from .file_commands import AddCommand, RemoveCommand, FolderCommand
-from .context_commands import ClearContextCommand, ContextCommand, LogCommand, ReasonerCommand, OneTimeReasonerCommand, DefaultModelCommand
+from .context_commands import ContextCommand, LogCommand, ReasonerCommand, OneTimeReasonerCommand, DefaultModelCommand, ContextModeCommand, SequentialContextCommand, SmartTruncationCommand
 from .memory_commands import MemoryCommand
 
 from ..core.config import Config
@@ -27,7 +27,8 @@ def create_command_registry(config: Config) -> CommandRegistry:
     
     # System commands
     registry.register(ExitCommand(config))
-    registry.register(ClearCommand(config))
+    registry.register(ClearScreenCommand(config))
+    registry.register(ClearContextCommand(config))
     registry.register(HelpCommand(config))
     registry.register(OsCommand(config))
     registry.register(FuzzyCommand(config))
@@ -38,12 +39,14 @@ def create_command_registry(config: Config) -> CommandRegistry:
     registry.register(FolderCommand(config))
     
     # Context commands
-    registry.register(ClearContextCommand(config))
     registry.register(ContextCommand(config))
     registry.register(LogCommand(config))
     registry.register(ReasonerCommand(config))
     registry.register(OneTimeReasonerCommand(config))
     registry.register(DefaultModelCommand(config))
+    registry.register(ContextModeCommand(config))
+    registry.register(SequentialContextCommand(config))
+    registry.register(SmartTruncationCommand(config))
     
     # Memory commands
     registry.register(MemoryCommand(config))

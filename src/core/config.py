@@ -274,20 +274,47 @@ class Config:
             git_status = f'Enabled (branch: {branch})'
         
         # Build context dictionary for template formatting
+        # Handle nested dictionary access by flattening the values
         format_context = {
             'os_info': self.os_info,
             'current_working_directory': str(self.base_dir),
             'shells_available': shells_str,
-            'git_status': git_status
+            'git_status': git_status,
+            # Add individual os_info values for direct access
+            'os_system': self.os_info.get('system', 'Unknown'),
+            'os_release': self.os_info.get('release', 'Unknown'),
+            'os_machine': self.os_info.get('machine', 'Unknown'),
+            'python_version': self.os_info.get('python_version', 'Unknown'),
+            'available_shells': shells_str
         }
         
         try:
             # Format the template with current context
             formatted_prompt = prompt_template.format(**format_context)
             return formatted_prompt
-        except (KeyError, ValueError):
-            # If template formatting fails, fall back to original prompt
-            return prompt_template
+        except (KeyError, ValueError) as e:
+            # If template formatting fails, manually replace the known problematic patterns
+            formatted_prompt = prompt_template
+            
+            # Replace os_info dictionary access patterns
+            formatted_prompt = formatted_prompt.replace(
+                "{os_info['system']}", self.os_info.get('system', 'Unknown')
+            )
+            formatted_prompt = formatted_prompt.replace(
+                "{os_info['release']}", self.os_info.get('release', 'Unknown')
+            )
+            formatted_prompt = formatted_prompt.replace(
+                "{os_info['machine']}", self.os_info.get('machine', 'Unknown')
+            )
+            formatted_prompt = formatted_prompt.replace(
+                "{os_info['python_version']}", self.os_info.get('python_version', 'Unknown')
+            )
+            
+            # Replace the complex shell availability expression
+            shell_expression = "{', '.join([shell for shell, available in os_info['shell_available'].items() if available]) or 'None'}"
+            formatted_prompt = formatted_prompt.replace(shell_expression, shells_str)
+            
+            return formatted_prompt
     
     def _get_default_system_prompt(self) -> str:
         """Get the default system prompt."""
@@ -492,6 +519,20 @@ Remember: You're a senior engineer - be thoughtful, precise, and explain your re
                         },
                     },
                     "required": ["content", "type"],
+                },
+            ),
+            tool(
+                name="change_working_directory",
+                description="Change the current working directory for file operations. Use this when you need to work in a different directory.",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "directory_path": {
+                            "type": "string",
+                            "description": "Path to the directory to change to. Can be absolute, relative, or use ~ for home directory.",
+                        },
+                    },
+                    "required": ["directory_path"],
                 },
             ),
         ]

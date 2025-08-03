@@ -241,6 +241,54 @@ class EditFileTool(BaseTool):
             return ToolResult.error(f"Error editing file '{args.get('file_path', 'unknown')}': {str(e)}")
 
 
+class ChangeWorkingDirectoryTool(BaseTool):
+    """Handle change_working_directory function calls."""
+    
+    def get_name(self) -> str:
+        return "change_working_directory"
+    
+    def execute(self, args: Dict[str, Any]) -> ToolResult:
+        """Execute change_working_directory to change the current working directory."""
+        try:
+            from ..commands.file_commands import FolderCommand
+            from ..core.session import GrokSession
+            
+            new_directory = args["directory_path"]
+            
+            # Normalize the path
+            try:
+                if new_directory.startswith("~"):
+                    new_path = Path(new_directory).expanduser()
+                elif Path(new_directory).is_absolute():
+                    new_path = Path(new_directory)
+                else:
+                    # Relative to current working directory
+                    new_path = self.config.base_dir / new_directory
+                
+                new_path = new_path.resolve()
+                
+                # Validate path exists and is a directory
+                if not new_path.exists():
+                    return ToolResult.error(f"Directory does not exist: '{new_path}'")
+                
+                if not new_path.is_dir():
+                    return ToolResult.error(f"Path is not a directory: '{new_path}'")
+                
+            except (FileNotFoundError, OSError, PermissionError) as e:
+                return ToolResult.error(f"Error accessing directory: {str(e)}")
+            
+            # Update the config's base directory
+            old_path = self.config.base_dir
+            self.config.base_dir = new_path
+            
+            # NOTE: In a real implementation, you'd want to get the session instance
+            # For now, we'll just update the config and report success
+            return ToolResult.success(f"Working directory changed from '{old_path}' to '{new_path}'")
+            
+        except Exception as e:
+            return ToolResult.error(f"Error changing working directory: {str(e)}")
+
+
 def create_file_tools(config) -> list[BaseTool]:
     """Create all file tools."""
     return [
@@ -248,5 +296,6 @@ def create_file_tools(config) -> list[BaseTool]:
         ReadMultipleFilesTool(config),
         CreateFileTool(config),
         CreateMultipleFilesTool(config),
-        EditFileTool(config)
+        EditFileTool(config),
+        ChangeWorkingDirectoryTool(config)
     ]

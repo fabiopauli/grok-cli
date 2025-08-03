@@ -32,23 +32,64 @@ class ExitCommand(BaseCommand):
         sys.exit(0)
 
 
-class ClearCommand(BaseCommand):
-    """Handle /clear command to clear screen."""
+class ClearScreenCommand(BaseCommand):
+    """Handle /cls command to clear screen."""
     
     def get_pattern(self) -> str:
-        return "/clear"
+        return "/cls"
     
     def get_description(self) -> str:
         return "Clear the screen"
     
     def matches(self, user_input: str) -> bool:
-        return user_input.strip().lower() == "/clear"
+        return user_input.strip().lower() == "/cls"
     
     def execute(self, user_input: str, session: GrokSession) -> CommandResult:
         from ..ui.console import get_console
         console = get_console()
         console.clear()
         return CommandResult.success()
+
+
+class ClearContextCommand(BaseCommand):
+    """Handle /clear command to clear conversation context."""
+    
+    def get_pattern(self) -> str:
+        return "/clear"
+    
+    def get_description(self) -> str:
+        return "Clear conversation history"
+    
+    def matches(self, user_input: str) -> bool:
+        return user_input.strip().lower() == "/clear"
+    
+    def execute(self, user_input: str, session: GrokSession) -> CommandResult:
+        from ..ui.console import get_console, get_prompt_session
+        
+        console = get_console()
+        prompt_session = get_prompt_session()
+        
+        conversation_history = session.get_conversation_history()
+        
+        if len(conversation_history) <= 1:
+            console.print("[yellow]Context already empty (only system prompt).[/yellow]")
+            return CommandResult.success()
+            
+        file_contexts = sum(1 for msg in conversation_history if msg["role"] == "system" and "User added file" in msg["content"])
+        total_messages = len(conversation_history) - 1
+        
+        console.print(f"[yellow]Current context: {total_messages} messages, {file_contexts} file contexts[/yellow]")
+        
+        # Confirm with user
+        confirm = prompt_session.prompt("🔵 Are you sure you want to clear the context? (y/N): ", default="n").strip().lower()
+        
+        if confirm in ["y", "yes"]:
+            session.clear_context(keep_system_prompt=True)
+            console.print("[bold green]✓[/bold green] Context cleared (system prompt retained)")
+            return CommandResult.success()
+        else:
+            console.print("[yellow]Context clear cancelled.[/yellow]")
+            return CommandResult.success()
 
 
 class HelpCommand(BaseCommand):
@@ -72,17 +113,25 @@ class HelpCommand(BaseCommand):
         help_text = f"""
 **Grok Assistant** - Your AI-powered development companion
 
-**Available Commands:**
+**File & Context Commands:**
 • `/add <path>` - Add file/directory to context with fuzzy matching
 • `/remove <path>` - Remove file from context
-• `/fuzzy` - Toggle fuzzy matching mode (currently: {'enabled' if self.config.fuzzy_enabled_by_default else 'disabled'})
 • `/folder <path>` - Change working directory
-• `/clear` - Clear screen
-• `/clear context` - Clear conversation history
 • `/context` - Show context usage statistics
+• `/clear` - Clear conversation history
 • `/log` - Show recent conversation history
-• `/r1` - Get one response from Grok-4 reasoning model without switching
+
+**Memory Management:**
+• `/memory` - Interactive memory management (save/load project knowledge)
+
+**Model & Reasoning:**
 • `/reasoner` - Toggle between Grok-3 and Grok-4 reasoning model
+• `/r1` - Get one response from Grok-4 reasoning model without switching
+• `/default` - Switch back to default model
+
+**System Commands:**
+• `/fuzzy` - Toggle fuzzy matching mode (currently: {'enabled' if self.config.fuzzy_enabled_by_default else 'disabled'})
+• `/cls` - Clear screen
 • `/os` - Show OS and environment information
 • `/help` - Show this help message
 • `/exit` or `/quit` - Exit the application
@@ -90,7 +139,7 @@ class HelpCommand(BaseCommand):
 **File Operations:**
 Grok can read, create, and edit files through natural conversation. Just describe what you want to do!
 
-**System Commands:**
+**Shell Commands:**
 Use run_bash (Linux/macOS) or run_powershell (Windows) for system operations.
 
 **Security Features:**
@@ -100,7 +149,8 @@ Use run_bash (Linux/macOS) or run_powershell (Windows) for system operations.
 
 **Tips:**
 • Use `/add` to include files in your conversation context
-• Try `/fuzzy` to enable more flexible file matching
+• Try `/memory` to save important project knowledge and preferences
+• Use `/fuzzy` to enable more flexible file matching
 • Use `/context` to monitor token usage
 • Natural language works best - just describe what you need!
 """

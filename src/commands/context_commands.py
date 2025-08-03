@@ -10,46 +10,6 @@ from .base import BaseCommand, CommandResult
 from ..core.session import GrokSession
 
 
-class ClearContextCommand(BaseCommand):
-    """Handle /clear context command to clear conversation history."""
-    
-    def get_pattern(self) -> str:
-        return "/clear context"
-    
-    def get_description(self) -> str:
-        return "Clear conversation history"
-    
-    def matches(self, user_input: str) -> bool:
-        return user_input.strip().lower() == "/clear context"
-    
-    def execute(self, user_input: str, session: GrokSession) -> CommandResult:
-        from ..ui.console import get_console, get_prompt_session
-        
-        console = get_console()
-        prompt_session = get_prompt_session()
-        
-        conversation_history = session.get_conversation_history()
-        
-        if len(conversation_history) <= 1:
-            console.print("[yellow]Context already empty (only system prompt).[/yellow]")
-            return CommandResult.success()
-            
-        file_contexts = sum(1 for msg in conversation_history if msg["role"] == "system" and "User added file" in msg["content"])
-        total_messages = len(conversation_history) - 1
-        
-        console.print(f"[yellow]Current context: {total_messages} messages, {file_contexts} file contexts[/yellow]")
-        
-        # Confirm with user
-        confirm = prompt_session.prompt("🔵 Are you sure you want to clear the context? (y/N): ", default="n").strip().lower()
-        
-        if confirm in ["y", "yes"]:
-            session.clear_context(keep_system_prompt=True)
-            console.print("[bold green]✓[/bold green] Context cleared (system prompt retained)")
-            return CommandResult.success()
-        else:
-            console.print("[yellow]Context clear cancelled.[/yellow]")
-            return CommandResult.success()
-
 
 class ContextCommand(BaseCommand):
     """Handle /context command to show context usage statistics."""
@@ -220,5 +180,120 @@ class DefaultModelCommand(BaseCommand):
         # Switch to default model
         session.switch_model(self.config.default_model)
         console.print(f"[bold green]✓[/bold green] Switched to {self.config.default_model} model")
+        
+        return CommandResult.success()
+
+
+class ContextModeCommand(BaseCommand):
+    """Handle /context-mode command to show current context mode and options."""
+    
+    def get_pattern(self) -> str:
+        return "/context-mode"
+    
+    def get_description(self) -> str:
+        return "Show current context management mode and toggle options"
+    
+    def matches(self, user_input: str) -> bool:
+        return user_input.strip().lower() == "/context-mode"
+    
+    def execute(self, user_input: str, session: GrokSession) -> CommandResult:
+        from ..ui.console import get_console
+        from rich.table import Table
+        
+        console = get_console()
+        current_mode = session.get_context_mode()
+        
+        # Display current mode
+        console.print(f"\n[bold cyan]Current Context Mode:[/bold cyan] {current_mode}")
+        
+        # Create mode comparison table
+        mode_table = Table(title="Context Management Modes", show_header=True, header_style="bold bright_blue")
+        mode_table.add_column("Mode", style="bright_cyan")
+        mode_table.add_column("Description", style="white")
+        mode_table.add_column("Best For", style="green")
+        mode_table.add_column("Active", style="yellow")
+        
+        cache_active = "✓" if current_mode == "cache_optimized" else ""
+        smart_active = "✓" if current_mode == "smart_truncation" else ""
+        
+        mode_table.add_row(
+            "cache_optimized",
+            "Sequential context with periodic truncation",
+            "Long conversations, preserving history",
+            cache_active
+        )
+        mode_table.add_row(
+            "smart_truncation", 
+            "Immediate turn summarization at 70% limit",
+            "Memory-efficient, frequent API calls",
+            smart_active
+        )
+        
+        console.print(mode_table)
+        
+        # Show commands to switch modes
+        console.print("\n[bold]Commands:[/bold]")
+        console.print("  [cyan]/sequential[/cyan] - Switch to cache_optimized mode")
+        console.print("  [cyan]/smart[/cyan] - Switch to smart_truncation mode")
+        
+        return CommandResult.success()
+
+
+class SequentialContextCommand(BaseCommand):
+    """Handle /sequential command to switch to cache-optimized context mode."""
+    
+    def get_pattern(self) -> str:
+        return "/sequential"
+    
+    def get_description(self) -> str:
+        return "Switch to cache-optimized (sequential) context mode"
+    
+    def matches(self, user_input: str) -> bool:
+        return user_input.strip().lower() == "/sequential"
+    
+    def execute(self, user_input: str, session: GrokSession) -> CommandResult:
+        from ..ui.console import get_console
+        
+        console = get_console()
+        current_mode = session.get_context_mode()
+        
+        if current_mode == "cache_optimized":
+            console.print("[yellow]Already using cache-optimized (sequential) context mode.[/yellow]")
+            return CommandResult.success()
+        
+        # Switch to cache-optimized mode
+        session.set_context_mode("cache_optimized")
+        console.print("[bold green]✓[/bold green] Switched to cache-optimized (sequential) context mode")
+        console.print("[dim]Context will be preserved sequentially with periodic truncation when limits are reached.[/dim]")
+        
+        return CommandResult.success()
+
+
+class SmartTruncationCommand(BaseCommand):
+    """Handle /smart command to switch to smart truncation context mode."""
+    
+    def get_pattern(self) -> str:
+        return "/smart"
+    
+    def get_description(self) -> str:
+        return "Switch to smart truncation context mode"
+    
+    def matches(self, user_input: str) -> bool:
+        return user_input.strip().lower() == "/smart"
+    
+    def execute(self, user_input: str, session: GrokSession) -> CommandResult:
+        from ..ui.console import get_console
+        
+        console = get_console()
+        current_mode = session.get_context_mode()
+        
+        if current_mode == "smart_truncation":
+            console.print("[yellow]Already using smart truncation context mode.[/yellow]")
+            return CommandResult.success()
+        
+        # Switch to smart truncation mode
+        session.set_context_mode("smart_truncation")
+        console.print("[bold green]✓[/bold green] Switched to smart truncation context mode")
+        console.print("[dim]Context will be automatically summarized when reaching 70% token limit.[/dim]")
         
         return CommandResult.success()

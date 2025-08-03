@@ -72,6 +72,7 @@ def handle_tool_calls(response, tool_executor, session):
     
     if hasattr(response, 'tool_calls') and response.tool_calls:
         for tool_call in response.tool_calls:
+            # Display tool call
             display_tool_call(tool_call.function.name, {})
             
             # Execute tool call
@@ -82,9 +83,12 @@ def handle_tool_calls(response, tool_executor, session):
                 }
             })
             
-            # Add tool result to session
-            session.add_message("tool", result)
+            # Add tool result to session with proper tool name
+            session.add_message("tool", result, tool_name=tool_call.function.name)
             tool_results.append(result)
+            
+            # Display tool success (brief)
+            console.print(f"[dim]✓ {tool_call.function.name} completed[/dim]")
     
     return tool_results
 
@@ -124,45 +128,54 @@ def main_loop(config: Config, client: Client, command_registry, tool_executor) -
                     break
                 continue
             
-            # Add user message to session
+            # Add user message to session (this starts a turn)
             session.add_message("user", user_input)
             
-            # Show thinking indicator
-            display_thinking_indicator()
-            
-            # Get AI response (check if one-time reasoner is requested)
-            response = session.get_response()
-            
-            # Multi-step reasoning loop: Continue until no more tool calls
-            step_count = 0
-            max_steps = config.max_reasoning_steps
-            
-            while hasattr(response, 'tool_calls') and response.tool_calls and step_count < max_steps:
-                step_count += 1
+            try:
+                # Show thinking indicator
+                display_thinking_indicator()
                 
-                # Handle the current batch of tool calls
-                tool_results = handle_tool_calls(response, tool_executor, session)
+                # Get AI response (check if one-time reasoner is requested)
+                response = session.get_response()
                 
-                # Display assistant response if it has content
+                # Multi-step reasoning loop: Continue until no more tool calls
+                step_count = 0
+                max_steps = config.max_reasoning_steps
+                
+                while hasattr(response, 'tool_calls') and response.tool_calls and step_count < max_steps:
+                    step_count += 1
+                    
+                    # Display assistant response if it has content (before tool calls)
+                    if hasattr(response, 'content') and response.content:
+                        console.print(f"\nAssistant: {response.content}\n")
+                    
+                    # Handle the current batch of tool calls
+                    tool_results = handle_tool_calls(response, tool_executor, session)
+                    
+                    # Get the next response from the model to analyze tool results
+                    if step_count < max_steps:
+                        console.print(f"[dim]Step {step_count}: Analyzing tool results...[/dim]")
+                        display_thinking_indicator()
+                        response = session.get_response()
+                    else:
+                        console.print(f"[yellow]Maximum reasoning steps ({max_steps}) reached.[/yellow]")
+                        break
+                
+                # Display completion summary if multi-step reasoning occurred
+                if step_count > 0:
+                    console.print(f"[dim]Completed reasoning in {step_count} step{'s' if step_count != 1 else ''}.[/dim]")
+                
+                # Display final response (without tool calls)
                 if hasattr(response, 'content') and response.content:
-                    console.print(f"\nAssistant message: {response.content}\n")
+                    console.print(f"\nAssistant: {response.content}\n")
                 
-                # Get the next response from the model to analyze tool results
-                if step_count < max_steps:
-                    console.print(f"[dim]Step {step_count}: Analyzing tool results...[/dim]")
-                    display_thinking_indicator()
-                    response = session.get_response()
-                else:
-                    console.print(f"[yellow]Maximum reasoning steps ({max_steps}) reached.[/yellow]")
-                    break
-            
-            # Display completion summary if multi-step reasoning occurred
-            if step_count > 0:
-                console.print(f"[dim]Completed reasoning in {step_count} step{'s' if step_count != 1 else ''}.[/dim]")
-            
-            # Display final response (without tool calls)
-            if hasattr(response, 'content') and response.content:
-                console.print(f"\nAssistant message: {response.content}\n")
+                # Complete the turn successfully
+                session.complete_turn("AI interaction completed")
+                
+            except Exception as e:
+                # Complete the turn even on error to avoid leaving it dangling
+                session.complete_turn(f"AI interaction failed: {str(e)}")
+                raise  # Re-raise the exception to be handled by outer try-catch
         
         except KeyboardInterrupt:
             console.print("\n[yellow]Interrupted by user.[/yellow]")

@@ -7,6 +7,7 @@ Interactive memory management with clean command structure.
 """
 
 from typing import Dict, Any, Optional
+from rich.table import Table
 from .base import BaseCommand, CommandResult
 from ..core.session import GrokSession
 
@@ -26,7 +27,6 @@ class MemoryCommand(BaseCommand):
     def execute(self, user_input: str, session: GrokSession) -> CommandResult:
         """Execute the interactive memory command."""
         from ..ui.console import get_console, get_prompt_session
-        from rich.table import Table
         
         console = get_console()
         prompt_session = get_prompt_session()
@@ -344,7 +344,6 @@ class MemoryCommand(BaseCommand):
     
     def _show_statistics(self, console, memory_manager) -> None:
         """Show memory statistics."""
-        from rich.table import Table
         
         stats = memory_manager.get_memory_statistics()
         

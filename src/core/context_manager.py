@@ -261,8 +261,9 @@ class ContextManager:
             else:
                 return []
         else:
-            # Cache mode: return all full context
-            return self.full_context[1:]  # Skip system prompt (added separately)
+            # Cache mode: return full context excluding system messages
+            # (system prompt is already added in get_context_for_api)
+            return [msg for msg in self.full_context if msg.get("role") != "system"]
     
     def _check_cache_truncation(self) -> None:
         """Check if cache mode needs truncation and apply if necessary."""
@@ -286,12 +287,9 @@ class ContextManager:
     
     def _apply_smart_truncation(self) -> None:
         """Apply smart truncation keeping only essential turn logs."""
-        if len(self.turn_logs) <= 3:
-            return  # Keep at least 3 turns
         
-        # Calculate target token count (leave room for response)
-        max_tokens = self.config.get_max_tokens_for_model(self.config.current_model)
-        target_tokens = int(max_tokens * 0.6)  # Use 60% of context for history
+        # Calculate target token count - be more aggressive to ensure we stay under threshold
+        target_tokens = int(self.smart_truncation_threshold * 0.9)  # 90% of the 70% threshold = 63%
         
         # Get current context and estimate tokens
         current_context = self.get_context_for_api()
@@ -301,41 +299,60 @@ class ContextManager:
         if estimated_tokens <= target_tokens:
             return
         
-        # Keep recent turns and compress older ones
-        # Strategy: Keep last 3 turns in full detail, summarize the rest
-        if len(self.turn_logs) > 5:
-            # Keep first turn (often contains important setup)
-            # Compress middle turns (keep every other turn summary)
-            # Keep last 3 turns in full detail
-            
+        # Aggressively truncate to stay under threshold
+        # Keep only essential turns and heavily compress the rest
+        max_iterations = 5  # Prevent infinite loops
+        iteration = 0
+        while estimated_tokens > target_tokens and len(self.turn_logs) > 1 and iteration < max_iterations:
             preserved_turns = []
             
-            # Always keep first turn if it's important
-            if self.turn_logs:
-                preserved_turns.append(self.turn_logs[0])
-            
-            # For middle turns, keep every 2nd turn summary
-            middle_turns = self.turn_logs[1:-3]
-            for i in range(0, len(middle_turns), 2):
-                turn = middle_turns[i]
-                # Create a compressed version with just summary
-                compressed_turn = Turn(
-                    turn_id=f"{turn.turn_id}_compressed",
-                    start_time=turn.start_time,
-                    events=[],  # Remove detailed events
-                    end_time=turn.end_time,
-                    files_modified=turn.files_modified,
-                    files_created=turn.files_created,
-                    files_read=turn.files_read,
-                    tools_used=turn.tools_used,
-                    summary=turn.summary
+            # Strategy: Keep only the most recent 2 turns in full detail
+            # and create a single summary turn for everything else
+            if len(self.turn_logs) > 1:
+                # Create a single compressed summary of all older turns
+                # Keep only the most recent turn if we have more than 1
+                older_turns = self.turn_logs[:-1]
+                summary_parts = []
+                files_modified = set()
+                files_created = set()
+                files_read = set()
+                tools_used = set()
+                
+                for turn in older_turns:
+                    if turn.summary:
+                        summary_parts.append(f"Turn {turn.turn_id}: {turn.summary}")
+                    else:
+                        summary_parts.append(f"Turn {turn.turn_id}: User interaction completed")
+                    files_modified.update(turn.files_modified)
+                    files_created.update(turn.files_created)
+                    files_read.update(turn.files_read)
+                    tools_used.update(turn.tools_used)
+                
+                # Create one summary turn for all older context
+                summary_turn = Turn(
+                    turn_id="compressed_history",
+                    start_time=older_turns[0].start_time if older_turns else "",
+                    events=[],  # No detailed events
+                    end_time=older_turns[-1].end_time if older_turns else "",
+                    files_modified=list(files_modified),
+                    files_created=list(files_created),
+                    files_read=list(files_read),
+                    tools_used=list(tools_used),
+                    summary="; ".join(summary_parts)
                 )
-                preserved_turns.append(compressed_turn)
-            
-            # Always keep last 3 turns in full detail
-            preserved_turns.extend(self.turn_logs[-3:])
-            
-            self.turn_logs = preserved_turns
+                preserved_turns.append(summary_turn)
+                
+                # Keep only the most recent turn in full detail
+                preserved_turns.extend(self.turn_logs[-1:])
+                
+                self.turn_logs = preserved_turns
+                
+                # Re-calculate tokens to see if we're under the threshold now
+                current_context = self.get_context_for_api()
+                estimated_tokens, _ = estimate_token_usage(current_context)
+                iteration += 1
+            else:
+                break  # Can't reduce further
     
     def _convert_full_context_to_turns(self) -> None:
         """Convert full context to turn logs."""

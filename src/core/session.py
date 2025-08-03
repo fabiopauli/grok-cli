@@ -77,6 +77,9 @@ class GrokSession:
             f"Runtime environment: {self.config.os_info['system']} {self.config.os_info['release']}, "
             f"Python {self.config.os_info['python_version']}, Shells: {shell_status}"
         )
+        
+        # System prompt is now handled by context manager
+        # No need to add to legacy history
     
     def _get_directory_tree_summary(self, base_dir: Path) -> str:
         """Get a summary of directory tree structure."""
@@ -133,8 +136,21 @@ class GrokSession:
         message = {"role": role, "content": content, **kwargs}
         self.history.append(message)
         
-        # Rebuild chat instance
-        self.chat_instance = self._create_chat_instance_from_context()
+        # Add to chat instance following xAI SDK patterns
+        if role == "user":
+            # User messages already added by start_turn, don't duplicate
+            pass
+        elif role == "assistant":
+            # Assistant messages are added via append(response) in get_response()
+            pass
+        elif role == "tool":
+            # Add tool results to chat instance
+            from xai_sdk.chat import tool_result
+            self.chat_instance.append(tool_result(content))
+        elif role == "system":
+            # System messages need to be added to chat instance
+            from xai_sdk.chat import system
+            self.chat_instance.append(system(content))
     
     def switch_model(self, new_model: str) -> None:
         """
@@ -183,7 +199,10 @@ class GrokSession:
         self._use_reasoner_next = False
         
         # Append response to chat instance (as per xAI SDK documentation)
-        self.chat_instance.append(response)
+        # This is the correct pattern according to xAI docs
+        if not should_use_reasoner or self.model == self.config.reasoner_model:
+            # Only append if using the main chat instance (not temp reasoner chat)
+            self.chat_instance.append(response)
         
         return response
     
@@ -243,13 +262,10 @@ class GrokSession:
         self.context_manager.clear_context(keep_memories=True)
         
         # Clear legacy history for compatibility
-        if keep_system_prompt and self.history:
-            original_system_prompt = self.history[0]
-            self.history = [original_system_prompt]
-            self._add_initial_context()
-        else:
-            self.history = []
-            self._add_initial_context()
+        self.history = []
+        
+        # Re-add initial context
+        self._add_initial_context()
         
         # Rebuild chat instance
         self.chat_instance = self._create_chat_instance_from_context()
@@ -293,6 +309,11 @@ class GrokSession:
         Returns:
             Turn ID for the new turn
         """
+        # Add user message to chat instance (xAI SDK pattern)
+        from xai_sdk.chat import user
+        self.chat_instance.append(user(user_message))
+        
+        # Also delegate to context manager for memory tracking
         return self.context_manager.start_turn(user_message)
     
     def add_assistant_response(self, content: str, tool_calls: Optional[List[Dict[str, Any]]] = None) -> None:
