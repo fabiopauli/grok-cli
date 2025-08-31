@@ -30,6 +30,7 @@ class Config:
     # Model settings
     default_model: str = "grok-3-mini"
     reasoner_model: str = "grok-4"
+    coder_model: str = "grok-code-fast-1"
     current_model: str = "grok-3-mini"
     is_reasoner: bool = False
     
@@ -74,6 +75,7 @@ class Config:
         "grok-3": 128000,
         "grok-3-mini": 128000,
         "grok-4": 128000,
+        "grok-code-fast-1": 128000,
     })
     
     def __post_init__(self):
@@ -169,6 +171,7 @@ class Config:
             model_config = config_data['models']
             self.default_model = model_config.get('default_model', self.default_model)
             self.reasoner_model = model_config.get('reasoner_model', self.reasoner_model)
+            self.coder_model = model_config.get('coder_model', self.coder_model)
             self.current_model = self.default_model
         
         # Security

@@ -297,3 +297,32 @@ class SmartTruncationCommand(BaseCommand):
         console.print("[dim]Context will be automatically summarized when reaching 70% token limit.[/dim]")
         
         return CommandResult.success()
+
+
+class CoderCommand(BaseCommand):
+    """Handle /coder command to switch to grok-code-fast-1 model."""
+    
+    def get_pattern(self) -> str:
+        return "/coder"
+    
+    def get_description(self) -> str:
+        return "Switch to grok-code-fast-1 coding model"
+    
+    def matches(self, user_input: str) -> bool:
+        return user_input.strip().lower() == "/coder"
+    
+    def execute(self, user_input: str, session: GrokSession) -> CommandResult:
+        from ..ui.console import get_console
+        
+        console = get_console()
+        
+        if session.model == self.config.coder_model:
+            console.print(f"[yellow]Already using {self.config.coder_model} model.[/yellow]")
+            return CommandResult.success()
+        
+        # Switch to coder model
+        session.switch_model(self.config.coder_model)
+        console.print(f"[bold green]✓[/bold green] Switched to {self.config.coder_model} coding model")
+        console.print("[dim]This model is optimized for fast code generation and editing.[/dim]")
+        
+        return CommandResult.success()

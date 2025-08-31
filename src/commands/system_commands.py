@@ -127,6 +127,7 @@ class HelpCommand(BaseCommand):
 **Model & Reasoning:**
 • `/reasoner` - Toggle between Grok-3 and Grok-4 reasoning model
 • `/r1` - Get one response from Grok-4 reasoning model without switching
+• `/coder` - Switch to grok-code-fast-1 coding model
 • `/default` - Switch back to default model
 
 **System Commands:**
