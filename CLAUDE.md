@@ -59,9 +59,10 @@ This is a modular AI assistant built with strict separation of concerns and depe
 
 ### AI Integration Details
 
-**Models**: Supports two xAI models:
-- `grok-3`: Default conversational model
-- `grok-4`: Enhanced reasoning model (can be used temporarily with `/r` command)
+**Models**: Supports multiple xAI models:
+- `grok-4-fast-non-reasoning`: Default conversational model
+- `grok-4-fast-reasoning`: Enhanced reasoning model (can be used temporarily with `/r` command)
+- `grok-code-fast-1`: Specialized code model (can be used with `/coder` command)
 
 **Function Calling Tools**:
 - `read_file`, `read_multiple_files`: File reading operations

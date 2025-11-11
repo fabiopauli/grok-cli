@@ -28,10 +28,10 @@ class Config:
     config_file: Optional[Path] = None
     
     # Model settings
-    default_model: str = "grok-3-mini"
-    reasoner_model: str = "grok-4"
+    default_model: str = "grok-4-fast-non-reasoning"
+    reasoner_model: str = "grok-4-fast-reasoning"
     coder_model: str = "grok-code-fast-1"
-    current_model: str = "grok-3-mini"
+    current_model: str = "grok-4-fast-non-reasoning"
     is_reasoner: bool = False
     
     # File limits
@@ -75,6 +75,8 @@ class Config:
         "grok-3": 128000,
         "grok-3-mini": 128000,
         "grok-4": 128000,
+        "grok-4-fast-reasoning": 128000,
+        "grok-4-fast-non-reasoning": 128000,
         "grok-code-fast-1": 128000,
     })
     

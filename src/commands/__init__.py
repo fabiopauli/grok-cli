@@ -7,7 +7,7 @@ Contains command handlers implementing the command pattern.
 from .base import BaseCommand, CommandResult, CommandRegistry
 from .system_commands import ExitCommand, ClearScreenCommand, ClearContextCommand, HelpCommand, OsCommand, FuzzyCommand
 from .file_commands import AddCommand, RemoveCommand, FolderCommand
-from .context_commands import ContextCommand, LogCommand, ReasonerCommand, OneTimeReasonerCommand, DefaultModelCommand, ContextModeCommand, SequentialContextCommand, SmartTruncationCommand, CoderCommand
+from .context_commands import ContextCommand, LogCommand, ReasonerCommand, DefaultModelCommand, ContextModeCommand, SequentialContextCommand, SmartTruncationCommand, CoderCommand
 from .memory_commands import MemoryCommand
 
 from ..core.config import Config
@@ -42,7 +42,6 @@ def create_command_registry(config: Config) -> CommandRegistry:
     registry.register(ContextCommand(config))
     registry.register(LogCommand(config))
     registry.register(ReasonerCommand(config))
-    registry.register(OneTimeReasonerCommand(config))
     registry.register(DefaultModelCommand(config))
     registry.register(CoderCommand(config))
     registry.register(ContextModeCommand(config))

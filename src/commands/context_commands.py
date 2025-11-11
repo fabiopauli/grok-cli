@@ -98,16 +98,17 @@ class LogCommand(BaseCommand):
 
 
 class ReasonerCommand(BaseCommand):
-    """Handle /reasoner command to toggle between models."""
-    
+    """Handle /reasoner or /r command to toggle between models."""
+
     def get_pattern(self) -> str:
         return "/reasoner"
-    
+
     def get_description(self) -> str:
-        return "Toggle between Grok-3 and Grok-4 reasoning model"
-    
+        return "Toggle between default and reasoning model (alias: /r)"
+
     def matches(self, user_input: str) -> bool:
-        return user_input.strip().lower() == "/reasoner"
+        user_cmd = user_input.strip().lower()
+        return user_cmd == "/reasoner" or user_cmd == "/r"
     
     def execute(self, user_input: str, session: GrokSession) -> CommandResult:
         from ..ui.console import get_console
@@ -123,35 +124,6 @@ class ReasonerCommand(BaseCommand):
             session.switch_model(self.config.reasoner_model)
             console.print(f"[bold green]✓[/bold green] Switched to {self.config.reasoner_model} reasoning model")
             console.print("[dim]This model provides enhanced reasoning capabilities.[/dim]")
-        
-        return CommandResult.success()
-
-
-class OneTimeReasonerCommand(BaseCommand):
-    """Handle /r1 command for one-off reasoner response."""
-    
-    def get_pattern(self) -> str:
-        return "/r1"
-    
-    def get_description(self) -> str:
-        return "Get one response from Grok-4 reasoning model without switching"
-    
-    def matches(self, user_input: str) -> bool:
-        return user_input.strip().lower() == "/r1"
-    
-    def execute(self, user_input: str, session: GrokSession) -> CommandResult:
-        from ..ui.console import get_console
-        
-        console = get_console()
-        
-        if session.model == self.config.reasoner_model:
-            console.print(f"[yellow]Already using {self.config.reasoner_model} model.[/yellow]")
-            return CommandResult.success()
-        
-        # Set flag for one-time reasoner use
-        session._use_reasoner_next = True
-        console.print(f"[bold green]✓[/bold green] Next response will use {self.config.reasoner_model} reasoning model")
-        console.print("[dim]This model provides enhanced reasoning capabilities.[/dim]")
         
         return CommandResult.success()
 

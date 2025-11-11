@@ -125,8 +125,7 @@ class HelpCommand(BaseCommand):
 • `/memory` - Interactive memory management (save/load project knowledge)
 
 **Model & Reasoning:**
-• `/reasoner` - Toggle between Grok-3 and Grok-4 reasoning model
-• `/r1` - Get one response from Grok-4 reasoning model without switching
+• `/reasoner` or `/r` - Toggle between default and reasoning model
 • `/coder` - Switch to grok-code-fast-1 coding model
 • `/default` - Switch back to default model
 

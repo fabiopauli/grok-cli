@@ -24,8 +24,8 @@ class TestConfig:
         
         # Check default values
         assert config.base_dir == Path.cwd()
-        assert config.default_model == "grok-3"
-        assert config.reasoner_model == "grok-4"
+        assert config.default_model == "grok-4-fast-non-reasoning"
+        assert config.reasoner_model == "grok-4-fast-reasoning"
         assert config.fuzzy_enabled_by_default is False
         assert config.require_bash_confirmation is True
         assert config.require_powershell_confirmation is True
@@ -55,15 +55,15 @@ class TestConfig:
     def test_model_switching(self):
         """Test model switching functionality."""
         config = Config()
-        
+
         # Test switching to reasoner
-        config.set_model("grok-4")
-        assert config.current_model == "grok-4"
+        config.set_model("grok-4-fast-reasoning")
+        assert config.current_model == "grok-4-fast-reasoning"
         assert config.is_reasoner is True
-        
+
         # Test switching back to default
-        config.set_model("grok-3")
-        assert config.current_model == "grok-3"
+        config.set_model("grok-4-fast-non-reasoning")
+        assert config.current_model == "grok-4-fast-non-reasoning"
         assert config.is_reasoner is False
         
     def test_git_context_management(self):
@@ -153,7 +153,7 @@ class TestConfigWithFiles:
         with patch('pathlib.Path.exists', return_value=False):
             config = Config()
             # Should use defaults when file doesn't exist
-            assert config.default_model == "grok-3"
+            assert config.default_model == "grok-4-fast-non-reasoning"
             
     def test_invalid_config_file(self):
         """Test behavior with invalid JSON config."""
@@ -161,7 +161,7 @@ class TestConfigWithFiles:
             with patch('pathlib.Path.exists', return_value=True):
                 config = Config()
                 # Should use defaults when JSON is invalid
-                assert config.default_model == "grok-3"
+                assert config.default_model == "grok-4-fast-non-reasoning"
                 
     def test_partial_config_file(self):
         """Test behavior with partial config file."""
@@ -177,9 +177,9 @@ class TestConfigWithFiles:
                 # Should apply partial config
                 assert config.max_files_in_add_dir == 500
                 assert config.require_bash_confirmation is False
-                
+
                 # Should keep defaults for unspecified values
-                assert config.default_model == "grok-3"
+                assert config.default_model == "grok-4-fast-non-reasoning"
 
 
 @pytest.mark.security

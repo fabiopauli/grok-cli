@@ -4,7 +4,7 @@ A powerful command-line AI assistant built with modular architecture and xAI's G
 
 ## Features
 
-- **Dual AI Models**: Switch between Grok-3 (conversational) and Grok-4 (enhanced reasoning)
+- **Dual AI Models**: Switch between Grok-4-Fast-Non-Reasoning (default) and Grok-4-Fast-Reasoning (enhanced reasoning)
 - **Intelligent File Operations**: Read, create, and edit files with optional fuzzy matching
 - **Secure Shell Execution**: Cross-platform shell commands with user confirmation
 - **Smart Context Management**: Automatic conversation truncation with token estimation
@@ -93,7 +93,7 @@ python main.py
 
 - `/add <file_pattern>` - Add files to conversation context
 - `/context` - Show current conversation context and token usage
-- `/reasoner` or `/r` - Switch to Grok-4 for enhanced reasoning (temporary)
+- `/reasoner` or `/r` - Switch to Grok-4-Fast-Reasoning for enhanced reasoning (temporary)
 - `/fuzzy` - Enable fuzzy file/code matching for current session
 - `/exit` or `/quit` - Exit the application
 - `Ctrl+C` - Exit the application
@@ -112,7 +112,7 @@ Added 2 files to context: config.py, session.py
 The configuration system is built around a dataclass-based approach...
 
 > /r How can I optimize the token estimation?
-[Switches to Grok-4 for enhanced reasoning]
+[Switches to Grok-4-Fast-Reasoning for enhanced reasoning]
 To optimize token estimation, consider these approaches...
 ```
 
@@ -132,7 +132,7 @@ Create `config.json` for advanced settings:
 
 ```json
 {
-  "model_name": "grok-3",
+  "model_name": "grok-4-fast-non-reasoning",
   "max_context_tokens": 100000,
   "file_size_limit": 1048576,
   "enable_fuzzy_matching": false

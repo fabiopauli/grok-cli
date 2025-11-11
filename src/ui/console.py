@@ -49,29 +49,40 @@ def initialize_prompt_session() -> None:
 def get_prompt_indicator(conversation_history: List[Dict[str, Any]], current_model: str) -> str:
     """
     Generate a prompt indicator based on current state.
-    
+
     Args:
         conversation_history: Current conversation history
         current_model: Current model name
-        
+
     Returns:
         Formatted prompt indicator string
     """
     # Count messages (excluding system messages)
     user_messages = sum(1 for msg in conversation_history if msg["role"] == "user")
-    
-    # Model indicator - show full model name
-    if current_model.endswith("4"):
+
+    # Model indicator - parse the actual model name
+    if "grok-4-fast-reasoning" in current_model.lower():
+        model_indicator = "Grok-4-Fast-Reasoning"
+    elif "grok-4-fast-non-reasoning" in current_model.lower():
+        model_indicator = "Grok-4-Fast"
+    elif "grok-code-fast" in current_model.lower():
+        model_indicator = "Grok-Code-Fast"
+    elif "grok-4" in current_model.lower():
         model_indicator = "Grok-4"
-    else:
+    elif "grok-3-mini" in current_model.lower():
+        model_indicator = "Grok-3-Mini"
+    elif "grok-3" in current_model.lower():
         model_indicator = "Grok-3"
-    
+    else:
+        # Fallback: use the actual model name
+        model_indicator = current_model
+
     # Message count
     if user_messages == 0:
         count_str = ""
     else:
         count_str = f"[{user_messages}]"
-    
+
     return f"{model_indicator} {count_str}"
 
 
