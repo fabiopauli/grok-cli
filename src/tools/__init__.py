@@ -15,6 +15,7 @@ from .task_tools import create_task_tools
 from .code_execution_tool import create_code_execution_tools
 from .dynamic_tools import create_dynamic_tools, DynamicToolLoader
 from .tool_registry import ToolRegistry
+from .lifecycle_tools import create_lifecycle_tools, TaskCompletionSignal
 
 from ..core.config import Config
 
@@ -77,6 +78,10 @@ def create_tool_executor(config: Config, memory_manager=None, task_manager=None)
     for tool in create_code_execution_tools(config):
         executor.register_tool(tool)
 
+    # Register lifecycle tools (task completion signaling)
+    for tool in create_lifecycle_tools(config):
+        executor.register_tool(tool)
+
     # Register dynamic tools if self-mode is enabled
     if getattr(config, 'self_mode', False):
         dynamic_tools, loader = create_dynamic_tools(config)
@@ -92,5 +97,6 @@ __all__ = [
     'BaseTool',
     'ToolResult',
     'ToolExecutor',
+    'TaskCompletionSignal',
     'create_tool_executor'
 ]

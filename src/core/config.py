@@ -59,6 +59,10 @@ class Config:
     min_dialogue_tokens: int = 1000  # Minimum tokens needed for meaningful dialogue
     token_buffer_percent: float = 0.10  # 10% safety buffer to prevent API rejections
 
+    # Truncation settings
+    min_preserved_turns: int = 3  # Sliding window size for recent context
+    task_completion_token_threshold: int = 128000  # Show menu only above this
+
     # Token optimization settings
     shell_output_max_lines: int = 200  # Moderate limit for shell output
     shell_output_max_chars: int = 20000  # ~5K tokens
@@ -868,6 +872,24 @@ Remember: You're a senior engineer - be thoughtful, precise, and explain your re
                     },
                     "required": ["name", "description", "source_code"],
                 },
+            ),
+            tool(
+                name="task_completed",
+                description="Call this when you have FULLY completed the user's request AND are ready for their next instruction. Do NOT call this in the middle of multi-step tasks. This may trigger context management options if token usage is high.",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "summary": {
+                            "type": "string",
+                            "description": "A concise summary of what was accomplished (1-2 sentences)."
+                        },
+                        "next_steps": {
+                            "type": "string",
+                            "description": "Optional suggestions for what the user might want to do next."
+                        }
+                    },
+                    "required": ["summary"]
+                }
             ),
         ]
 

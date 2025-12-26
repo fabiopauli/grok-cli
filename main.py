@@ -23,7 +23,7 @@ from src.commands import create_command_registry
 from src.core.app_context import AppContext
 from src.core.config import Config
 from src.core.session import GrokSession
-from src.tools import create_tool_executor
+from src.tools import create_tool_executor, TaskCompletionSignal
 from src.ui import (
     display_error,
     display_startup_banner,
@@ -97,15 +97,34 @@ def handle_tool_calls(response, tool_executor, session):
             # Display tool call
             display_tool_call(tool_call.function.name, {})
 
-            # Execute tool call
-            result = tool_executor.execute_tool_call(
-                {
-                    "function": {
-                        "name": tool_call.function.name,
-                        "arguments": tool_call.function.arguments,
+            try:
+                # Execute tool call
+                result = tool_executor.execute_tool_call(
+                    {
+                        "function": {
+                            "name": tool_call.function.name,
+                            "arguments": tool_call.function.arguments,
+                        }
                     }
-                }
-            )
+                )
+            except TaskCompletionSignal as signal:
+                # Task completion signal caught - add tool result first
+                session.add_message(
+                    "tool",
+                    f"Task completed: {signal.summary}",
+                    tool_name="task_completed"
+                )
+                tool_results.append(f"Task completed: {signal.summary}")
+
+                # Then trigger user interaction
+                context_cleared = handle_task_completion_interaction(
+                    session,
+                    signal.summary,
+                    signal.next_steps
+                )
+
+                # Continue processing remaining tools if any
+                continue
 
             # Phase 3: Auto-mount files when read by AI
             if tool_call.function.name == "read_file":
@@ -153,6 +172,58 @@ def handle_tool_calls(response, tool_executor, session):
             console.print(f"[dim]✓ {tool_call.function.name} completed[/dim]")
 
     return tool_results
+
+
+def handle_task_completion_interaction(session, summary: str, next_steps: str = "") -> bool:
+    """
+    Handle task completion interaction with user.
+
+    Args:
+        session: Current GrokSession
+        summary: Task completion summary
+        next_steps: Optional next steps suggestion
+
+    Returns:
+        True if context was modified, False otherwise
+    """
+    console = get_console()
+    prompt_session = get_prompt_session()
+
+    # Check if context usage exceeds threshold (user requirement: 128k)
+    context_stats = session.get_context_info()
+    estimated_tokens = context_stats.get('estimated_tokens', 0)
+    threshold = session.config.task_completion_token_threshold
+
+    if estimated_tokens < threshold:
+        # Below threshold - just acknowledge completion
+        console.print(f"\n[green]✓ Task completed:[/green] {summary}")
+        if next_steps:
+            console.print(f"[dim]Suggested next steps: {next_steps}[/dim]\n")
+        return False
+
+    # Above threshold - offer context management
+    console.print(f"\n[bold green]✓ Task Completed[/bold green]")
+    console.print(f"[dim]{summary}[/dim]")
+    if next_steps:
+        console.print(f"[dim]Next steps: {next_steps}[/dim]")
+
+    console.print(f"\n[yellow]Context usage: {estimated_tokens:,} tokens (threshold: {threshold:,})[/yellow]")
+    console.print("Would you like to clear context to free up memory? (Y/n): ", end="")
+
+    try:
+        choice = prompt_session.prompt("").strip().lower()
+    except (KeyboardInterrupt, EOFError):
+        console.print("\n[dim]Keeping context.[/dim]")
+        return False
+
+    if choice in ['y', 'yes', '']:  # Default to yes per user requirement
+        # Clear context but keep system prompt and memories
+        session.clear_context(keep_system_prompt=True)
+        console.print("[green]✓ Context cleared. Memories and system prompt preserved.[/green]\n")
+        return True
+    else:
+        console.print("[dim]Context preserved.[/dim]\n")
+        return False
 
 
 def main_loop(context: AppContext) -> None:
@@ -377,7 +448,8 @@ def main() -> None:
         '  grok-cli --max-steps 0 "complex task"         # Unlimited tool calls\n'
         '  grok-cli --agent -r "autonomous task"         # Agent mode + reasoning\n'
         '  grok-cli --self --agent "create and test"     # Self-evolving + agent mode\n'
-        '  grok-cli --agent --max-steps 0 "unlimited"    # Agent + unlimited steps',
+        '  grok-cli --agent --max-steps 0 "unlimited"    # Agent + unlimited steps\n'
+        '  grok-cli --window-size 5 "long task"          # Keep 5 recent turns in context',
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -398,6 +470,10 @@ def main() -> None:
     parser.add_argument(
         "--max-steps", type=int, default=None, metavar="N",
         help="Maximum reasoning steps (tool call iterations). Default: 100, use 0 for unlimited"
+    )
+    parser.add_argument(
+        "--window-size", type=int, default=None, metavar="N",
+        help="Number of recent turns to preserve in sliding window (default: 3)"
     )
 
     # Context mode options (mutually exclusive)
@@ -430,6 +506,9 @@ def main() -> None:
 
         if args.max_steps is not None:
             context.config.max_reasoning_steps = args.max_steps if args.max_steps > 0 else 999999
+
+        if args.window_size is not None:
+            context.config.min_preserved_turns = args.window_size
 
         if args.sequential:
             context.config.initial_context_mode = "cache_optimized"

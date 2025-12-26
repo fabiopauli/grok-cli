@@ -68,18 +68,21 @@ class ToolExecutor:
     def execute_tool_call(self, tool_call_dict: Dict[str, Any]) -> str:
         """
         Execute a function call from the LLM.
-        
+
         Args:
             tool_call_dict: Dictionary containing function call information
-            
+
         Returns:
             String result of the function execution
+
+        Raises:
+            TaskCompletionSignal: When task_completed tool is called (let it propagate)
         """
         func_name = "unknown_function"
         try:
             func_name = tool_call_dict["function"]["name"]
             args = json.loads(tool_call_dict["function"]["arguments"])
-            
+
             # Find and execute the appropriate tool
             if func_name in self.tools:
                 tool = self.tools[func_name]
@@ -87,8 +90,13 @@ class ToolExecutor:
                 return result.result
             else:
                 return f"Error: Unknown function '{func_name}'. Available functions: {list(self.tools.keys())}"
-                
+
         except json.JSONDecodeError as e:
             return f"Error: Invalid JSON in function arguments for '{func_name}': {str(e)}"
         except Exception as e:
+            # Let TaskCompletionSignal propagate (don't catch it)
+            # Import here to avoid circular dependency
+            from .lifecycle_tools import TaskCompletionSignal
+            if isinstance(e, TaskCompletionSignal):
+                raise
             return f"Error executing function '{func_name}': {str(e)}"
