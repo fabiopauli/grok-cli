@@ -1,0 +1,87 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+*.venv
+
+# Environment variables and secrets
+.env
+.env.*
+!.env-example  # Keep the example file if present
+
+# Logs and backups (project-specific)
+logs/
+backup/
+old_version/
+
+
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Build and distribution artifacts
+build/
+dist/
+*.egg
+*.egg-info/
+sdist/
+wheels/
+*.whl
+MANIFEST
+
+# Testing and coverage
+.pytest_cache/
+coverage/
+.coverage
+htmlcov/
+*.cover
+.tox/
+.nox/
+hypothesis/
+
+# Type checking and linting
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+.ruff_cache/
+
+# Project-specific ignores
+.claude/
+*.log  # Any stray log files outside logs/
+/codebase_analyzer.py  # Test file created during self-evolving mode demo
+
+# Database files (SQLite persistence)
+*.db
+*.sqlite
+*.sqlite3
+
+# Configuration and memory files (may contain sensitive data)
+config.json
+.grok_memory.json
+.grok_global_memory.json
+grok_memories_export_*.json
+
+# Other common ignores
+*.bak
+*.tmp
+*.temp
+node_modules/  # If you ever add JS deps
+
+# If using Poetry/Pipenv/PDM, uncomment as needed:
+# poetry.lock
+# Pipfile.lock
+# pdm.lock
+__pypackages__/
