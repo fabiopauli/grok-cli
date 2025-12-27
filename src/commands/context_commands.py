@@ -374,13 +374,13 @@ class Grok4ReasonerCommand(BaseCommand):
 
 
 class MaxContextCommand(BaseCommand):
-    """Handle /max command to enable extended context (2M tokens) for grok-4-1 models."""
+    """Handle /max command to toggle extended context (2M tokens) for grok-4-1 models."""
 
     def get_pattern(self) -> str:
         return "/max"
 
     def get_description(self) -> str:
-        return "Enable 2M context window for grok-4-1 models"
+        return "Toggle 2M context window for grok-4-1 models (default: 128K)"
 
     def matches(self, user_input: str) -> bool:
         return user_input.strip().lower() == "/max"
@@ -390,16 +390,21 @@ class MaxContextCommand(BaseCommand):
 
         console = get_console()
 
-        if self.config.use_extended_context:
-            console.print("[yellow]Extended context (2M tokens) is already enabled.[/yellow]")
-            return CommandResult.ok()
+        # Toggle the extended context setting
+        new_state = not self.config.use_extended_context
 
-        # Enable extended context and persist to config file
-        self.config.update_extended_context(True)
+        if new_state:
+            # Enabling extended context
+            self.config.update_extended_context(True)
+            console.print("[bold green]✓[/bold green] Extended context enabled (2M tokens for grok-4-1 models)")
+            console.print("[dim]Context limit increased from 128K to 2M tokens.[/dim]")
+            console.print("[dim]⚠ Note: Usage beyond 128K tokens is charged at a different rate.[/dim]")
+        else:
+            # Disabling extended context (returning to default)
+            self.config.update_extended_context(False)
+            console.print("[bold green]✓[/bold green] Extended context disabled (default 128K tokens)")
+            console.print("[dim]Context limit returned to standard 128K tokens.[/dim]")
 
-        console.print("[bold green]✓[/bold green] Extended context enabled (2M tokens for grok-4-1 models)")
-        console.print("[dim]Context limit increased from 128K to 2M tokens.[/dim]")
-        console.print("[dim]⚠ Note: Usage beyond 128K tokens is charged at a different rate.[/dim]")
         console.print("[dim]Configuration saved to config.json.[/dim]")
 
         # Update session's context limits without losing conversation

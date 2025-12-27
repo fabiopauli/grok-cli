@@ -132,7 +132,7 @@ class HelpCommand(BaseCommand):
 • `/default` - Switch back to default model (grok-4-1-fast-non-reasoning)
 • `/grok-4` - Switch to legacy grok-4-fast-non-reasoning model
 • `/4r` - Switch to legacy grok-4-fast-reasoning model
-• `/max` - Enable extended 2M context for grok-4-1 models (default: 128K)
+• `/max` - Toggle extended 2M context for grok-4-1 models (default: 128K)
 
 **System Commands:**
 • `/fuzzy` - Toggle fuzzy matching mode (currently: {'enabled' if self.config.fuzzy_enabled_by_default else 'disabled'})
