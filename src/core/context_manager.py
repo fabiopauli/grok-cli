@@ -602,6 +602,7 @@ class ContextManager:
         """
         Get context usage statistics.
         Phase 3: Includes mounted files information.
+        Phase 4: Includes structured state information.
 
         Returns:
             Dictionary with context usage information
@@ -625,9 +626,34 @@ class ContextManager:
             "mounted_files_count": len(self.mounted_files),
             "mounted_files_tokens": mounted_files_tokens,
             "active_turn": self.turn_logger.is_turn_active(),
+            "structured_state_enabled": self.truncation_strategy.use_structured_state,
         }
 
+        # Add current state stats if using structured state
+        if self.truncation_strategy.use_structured_state:
+            current_state = self.get_current_state()
+            if current_state:
+                stats["current_state"] = current_state.get_summary_stats()
+
         return stats
+
+    def get_current_state(self):
+        """
+        Get the current structured state from compressed turns.
+
+        Returns:
+            ContextState if using structured state and one exists, None otherwise
+        """
+        if not self.truncation_strategy.use_structured_state:
+            return None
+
+        # Check if first turn is a compressed state
+        if self.turn_logs and self.turn_logs[0].turn_id == "compressed_state":
+            return self.truncation_strategy.turn_to_state(self.turn_logs[0])
+
+        # Otherwise, generate state from all turns
+        from .context_state import ContextState
+        return ContextState()  # Empty state
 
     def clear_context(self, keep_memories: bool = True, keep_mounted_files: bool = False) -> None:
         """
