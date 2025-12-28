@@ -244,6 +244,9 @@ def main_loop(context: AppContext) -> None:
     for tool in create_task_tools(context.config, session.task_manager):
         context.tool_executor.register_tool(tool)
 
+    # Inject context manager into file tools to fix stale mount problem
+    context.tool_executor.inject_context_manager(session.context_manager)
+
     # Main interaction loop
     while True:
         try:
@@ -392,6 +395,9 @@ def one_shot_mode(prompt: str, context: AppContext) -> None:
         from src.tools.task_tools import create_task_tools
         for tool in create_task_tools(context.config, session.task_manager):
             context.tool_executor.register_tool(tool)
+
+        # Inject context manager into file tools to fix stale mount problem
+        context.tool_executor.inject_context_manager(session.context_manager)
 
         # Add user message to session
         session.start_turn(prompt)

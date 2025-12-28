@@ -20,7 +20,7 @@ from .lifecycle_tools import create_lifecycle_tools, TaskCompletionSignal
 from ..core.config import Config
 
 
-def create_tool_executor(config: Config, memory_manager=None, task_manager=None) -> ToolExecutor:
+def create_tool_executor(config: Config, memory_manager=None, task_manager=None, context_manager=None) -> ToolExecutor:
     """
     Create and configure the tool executor with all available tools.
 
@@ -28,6 +28,7 @@ def create_tool_executor(config: Config, memory_manager=None, task_manager=None)
         config: Configuration object
         memory_manager: Memory manager instance (optional)
         task_manager: Task manager instance (optional)
+        context_manager: Context manager instance (optional)
 
     Returns:
         Configured ToolExecutor instance
@@ -36,6 +37,9 @@ def create_tool_executor(config: Config, memory_manager=None, task_manager=None)
 
     # Register file tools
     for tool in create_file_tools(config):
+        # Set context manager if provided (fixes stale mount problem)
+        if context_manager:
+            tool.set_context_manager(context_manager)
         executor.register_tool(tool)
 
     # Register shell tools

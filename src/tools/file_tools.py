@@ -189,6 +189,11 @@ class CreateFileTool(BaseTool):
             with open(norm_path, 'w', encoding='utf-8') as f:
                 f.write(content)
 
+            # Fix for stale mount problem: Refresh mounted file if it was already mounted
+            # (This handles the case where a mounted file is overwritten)
+            if self.context_manager and hasattr(self.context_manager, 'refresh_mounted_file_if_exists'):
+                self.context_manager.refresh_mounted_file_if_exists(norm_path)
+
             return ToolResult.ok(f"File created successfully: '{norm_path}'")
 
         except Exception as e:
@@ -223,7 +228,11 @@ class CreateMultipleFilesTool(BaseTool):
                 # Write file
                 with open(norm_path, 'w', encoding='utf-8') as f:
                     f.write(content)
-                
+
+                # Fix for stale mount problem: Refresh mounted file if it exists
+                if self.context_manager and hasattr(self.context_manager, 'refresh_mounted_file_if_exists'):
+                    self.context_manager.refresh_mounted_file_if_exists(norm_path)
+
                 created_files.append(norm_path)
                 
             except Exception as e:
@@ -246,23 +255,27 @@ class CreateMultipleFilesTool(BaseTool):
 
 class EditFileTool(BaseTool):
     """Handle edit_file function calls."""
-    
+
     def get_name(self) -> str:
         """Return the tool name for registration."""
         return "edit_file"
-    
+
     def execute(self, args: Dict[str, Any]) -> ToolResult:
         """Execute edit_file with fuzzy matching support."""
         try:
             norm_path = normalize_path(args["file_path"], self.config)
             original_snippet = args["original_snippet"]
             new_snippet = args["new_snippet"]
-            
+
             # Apply the edit with fuzzy matching
             apply_fuzzy_diff_edit(norm_path, original_snippet, new_snippet, self.config)
-            
+
+            # Fix for stale mount problem: Refresh mounted file content if it exists
+            if self.context_manager and hasattr(self.context_manager, 'refresh_mounted_file_if_exists'):
+                self.context_manager.refresh_mounted_file_if_exists(norm_path)
+
             return ToolResult.ok(f"File edited successfully: '{norm_path}'")
-            
+
         except Exception as e:
             return ToolResult.fail(f"Error editing file '{args.get('file_path', 'unknown')}': {str(e)}")
 

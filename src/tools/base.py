@@ -37,33 +37,57 @@ class ToolResult:
 
 class BaseTool(ABC):
     """Base class for all tool handlers."""
-    
+
     def __init__(self, config: Config):
         """Initialize the tool handler."""
         self.config = config
-    
+        self.context_manager = None  # Optional context manager for mounted file tracking
+
     @abstractmethod
     def get_name(self) -> str:
         """Get the tool name."""
         pass
-    
+
     @abstractmethod
     def execute(self, args: Dict[str, Any]) -> ToolResult:
         """Execute the tool with given arguments."""
         pass
 
+    def set_context_manager(self, context_manager) -> None:
+        """
+        Set the context manager for this tool.
+        Used by file tools to refresh mounted files after modifications.
+
+        Args:
+            context_manager: ContextManager instance
+        """
+        self.context_manager = context_manager
+
 
 class ToolExecutor:
     """Tool execution coordinator."""
-    
+
     def __init__(self, config: Config):
         """Initialize the tool executor."""
         self.config = config
         self.tools: Dict[str, BaseTool] = {}
-    
+
     def register_tool(self, tool: BaseTool) -> None:
         """Register a tool handler."""
         self.tools[tool.get_name()] = tool
+
+    def inject_context_manager(self, context_manager) -> None:
+        """
+        Inject context manager into all registered tools.
+        This is used to fix the stale mount problem by allowing file tools
+        to refresh mounted files after modifications.
+
+        Args:
+            context_manager: ContextManager instance to inject
+        """
+        for tool in self.tools.values():
+            if hasattr(tool, 'set_context_manager'):
+                tool.set_context_manager(context_manager)
     
     def execute_tool_call(self, tool_call_dict: Dict[str, Any]) -> str:
         """

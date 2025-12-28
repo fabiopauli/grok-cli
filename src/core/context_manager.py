@@ -210,6 +210,45 @@ class ContextManager:
         """
         return self.mounted_files.copy()
 
+    def refresh_mounted_file_if_exists(self, path: str) -> bool:
+        """
+        Refresh a mounted file's content from disk if it exists.
+        This prevents the "stale mount" problem where files are modified
+        on disk but the cached content in memory becomes outdated.
+
+        Args:
+            path: File path to refresh
+
+        Returns:
+            True if file was mounted and refreshed, False otherwise
+        """
+        normalized_path = str(Path(path).resolve())
+
+        if normalized_path in self.mounted_files:
+            # Re-read from disk
+            try:
+                with open(normalized_path, 'r', encoding='utf-8') as f:
+                    new_content = f.read()
+
+                # Update mounted file with fresh content
+                token_count = estimate_tokens_from_text(new_content)
+                self.mounted_files[normalized_path] = FileContext(
+                    path=normalized_path,
+                    content=new_content,
+                    token_count=token_count,
+                    timestamp=time.time()
+                )
+                return True
+            except Exception as e:
+                # If we can't read the file, it might have been deleted
+                # In that case, unmount it
+                print(f"Warning: Failed to refresh mounted file {path}: {e}")
+                print(f"  Unmounting file from context.")
+                del self.mounted_files[normalized_path]
+                return False
+
+        return False
+
     def add_file_to_context(self, path: str) -> None:
         """
         Track that a file's content is now in context.
