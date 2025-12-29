@@ -72,19 +72,22 @@ def normalize_path(path_str: str, config: Config, allow_outside_project: bool = 
     return str(normalized_path)
 
 
-def get_directory_tree_summary(root_dir: Path, config: Config, max_depth: int = 3, max_entries: int = 100) -> str:
+def get_directory_tree_summary(root_dir: Path, config: Config, max_depth: int = 3, max_entries: int = None) -> str:
     """
     Generate a concise summary of the directory structure.
-    
+
     Args:
         root_dir: Root directory to scan
         config: Configuration object
         max_depth: Maximum depth to traverse
-        max_entries: Maximum number of entries to include
-        
+        max_entries: Maximum number of entries to include (defaults to config.max_directory_entries)
+
     Returns:
         Formatted directory tree summary
     """
+    # Use config value if max_entries not explicitly provided
+    if max_entries is None:
+        max_entries = config.max_directory_entries
     if not root_dir.exists() or not root_dir.is_dir():
         return f"Directory '{root_dir}' does not exist or is not a directory."
     

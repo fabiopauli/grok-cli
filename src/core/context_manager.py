@@ -410,14 +410,11 @@ class ContextManager:
         # LAYER 3: Get dialogue stream (current turn + turn logs)
         current_turn_messages = []
         if self.turn_logger.is_turn_active():
+            # Only include active turn messages - turn_logs will be handled separately
             current_turn_messages = self.turn_logger.get_turn_events_as_messages()
-        elif self.mode == ContextMode.CACHE_OPTIMIZED:
-            # In cache mode, include all non-system messages from full_context
-            current_turn_messages = [
-                msg
-                for msg in self.full_context
-                if isinstance(msg, dict) and msg.get("role") != "system"
-            ]
+        # Note: In cache mode, we don't populate current_turn_messages from full_context
+        # because build_full_api_context() will handle turn_logs conversion.
+        # This avoids duplicate messages.
 
         dialogue_context = self.context_builder.build_full_api_context(
             system_messages=[],  # No system messages in dialogue layer
@@ -425,6 +422,7 @@ class ContextManager:
             current_turn_messages=current_turn_messages,
             memories=[],  # No memories in dialogue layer
             mode=self.mode,
+            include_system_prompt=False,  # Don't duplicate system prompt
         )
 
         # Calculate token usage for each layer
@@ -460,6 +458,7 @@ class ContextManager:
                     current_turn_messages=current_turn_messages,
                     memories=[],
                     mode=self.mode,
+                    include_system_prompt=False,  # Don't duplicate system prompt
                 )
 
         # Assemble final context: Layer 1 + Layer 2 + Layer 3

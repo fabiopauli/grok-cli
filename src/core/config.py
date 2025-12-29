@@ -42,6 +42,7 @@ class Config:
     max_file_size_in_add_dir: int = 5_000_000
     max_file_content_size_create: int = 5_000_000
     max_multiple_read_size: int = 100_000
+    max_directory_entries: int = 500  # Max files to show in directory tree summary
     
     # Fuzzy matching settings
     fuzzy_available: bool = field(default=False, init=False)  # Set in __post_init__

@@ -171,7 +171,8 @@ class ContextBuilder:
         memories: List[Dict[str, Any]],
         mode: ContextMode,
         task_summary: str = "",
-        enable_cache_hints: bool = False
+        enable_cache_hints: bool = False,
+        include_system_prompt: bool = True
     ) -> List[Dict[str, Any]]:
         """
         Build complete API-ready context with optional cache hints.
@@ -184,6 +185,7 @@ class ContextBuilder:
             mode: Context mode
             task_summary: Optional task summary to inject
             enable_cache_hints: Whether to add cache control metadata (default: False)
+            include_system_prompt: Whether to include the system prompt (default: True)
 
         Returns:
             Complete list of messages ready for API
@@ -191,13 +193,15 @@ class ContextBuilder:
         context = []
 
         # Add system prompt (always first) - STABLE PREFIX LAYER 1
-        system_prompt = self.build_system_prompt(memories, task_summary)
-        system_msg = {"role": "system", "content": system_prompt}
+        # Only add if requested (to avoid duplicates)
+        if include_system_prompt:
+            system_prompt = self.build_system_prompt(memories, task_summary)
+            system_msg = {"role": "system", "content": system_prompt}
 
-        if enable_cache_hints:
-            system_msg["cache_control"] = {"type": "ephemeral"}  # xAI API format TBD
+            if enable_cache_hints:
+                system_msg["cache_control"] = {"type": "ephemeral"}  # xAI API format TBD
 
-        context.append(system_msg)
+            context.append(system_msg)
 
         # Add other system messages (mounted files) - STABLE PREFIX LAYER 2
         cache_breakpoint = len(context)
