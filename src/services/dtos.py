@@ -87,3 +87,14 @@ class FileResolveResult:
     original_path: str
     error: str | None = None
     was_fuzzy_match: bool = False
+
+
+@dataclass
+class DirectoryChangeResult:
+    """Result of changing working directory."""
+
+    success: bool
+    old_path: str
+    new_path: str
+    memory_info: dict[str, Any] | None = None
+    error: str | None = None

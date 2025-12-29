@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Tests for TaskManager (Phase 3: Task Tracking System)
+Tests for TaskManager
 
 Tests the task management functionality for AI todo lists.
 """

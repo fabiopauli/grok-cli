@@ -18,7 +18,7 @@ A powerful command-line AI assistant built with modular architecture and xAI's G
 - **Token Buffer Protection**: 10% safety buffer prevents API rejections at token limits
 - **Rich Console Interface**: Beautiful formatting with syntax highlighting
 - **Modular Architecture**: Clean separation of concerns with dependency injection
-- **Comprehensive Testing**: Full test suite with 238 tests and 91% pass rate
+- **Comprehensive Testing**: Well-tested codebase with extensive test coverage
 
 ## Prerequisites
 
@@ -444,7 +444,7 @@ grok-cli/
 9. **Token Buffer Protection**: 10% safety margin on all token calculations
 10. **User-Friendly**: Command suggestions help prevent typos and discover features
 11. **Cross-Platform**: Works on Windows, macOS, and Linux
-12. **Comprehensive Testing**: 238 tests with 91% pass rate
+12. **Comprehensive Testing**: Well-tested codebase with extensive test suite
 
 ## Security Features
 

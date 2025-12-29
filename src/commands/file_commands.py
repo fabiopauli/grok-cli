@@ -65,7 +65,7 @@ class AddCommand(BaseCommand):
                     console.print("[dim]💡 Tip: Install 'thefuzz' for fuzzy path matching support.[/dim]")
                 return CommandResult.fail("Path not found")
 
-        # 3. Mount file(s) to context (Phase 3: Layered Context Model)
+        # 3. Mount file(s) to context
         try:
             normalized_path = normalize_path(normalized_path, self.config)
             path_obj = Path(normalized_path)
@@ -169,7 +169,7 @@ class RemoveCommand(BaseCommand):
             console.print(f"[bold red]✗[/bold red] Path does not exist: '[bright_cyan]{path_to_remove}[/bright_cyan]'")
             return CommandResult.failure("Path not found")
 
-        # Phase 3: Clean unmount using layered context model
+        # Unmount file from context
         relative_path = Path(normalized_path).relative_to(self.config.base_dir)
         was_mounted = session.unmount_file(normalized_path)
 
@@ -195,38 +195,26 @@ class FolderCommand(BaseCommand):
     
     def execute(self, user_input: str, session: GrokSession) -> CommandResult:
         from ..ui.console import get_console, get_prompt_session
-        
+        from ..services.directory_service import DirectoryService
+
         console = get_console()
         prompt_session = get_prompt_session()
         folder_path = user_input[len("/folder "):].strip()
-        
-        # Handle special cases
-        if folder_path == "..":
-            new_path = self.config.base_dir.parent
-        elif folder_path == ".":
-            new_path = self.config.base_dir
-        elif folder_path.startswith("~"):
-            new_path = Path(folder_path).expanduser()
-        else:
-            # Try relative to current directory first
-            if Path(folder_path).is_absolute():
-                new_path = Path(folder_path)
-            else:
-                new_path = self.config.base_dir / folder_path
-        
-        # Validate path
+
+        # Use DirectoryService for path resolution and validation
+        directory_service = DirectoryService(self.config)
+
         try:
-            new_path = new_path.resolve()
-            if not new_path.exists():
-                console.print(f"[bold red]✗[/bold red] Directory does not exist: '[bright_cyan]{new_path}[/bright_cyan]'")
-                return CommandResult.failure("Directory not found")
-            
-            if not new_path.is_dir():
-                console.print(f"[bold red]✗[/bold red] Path is not a directory: '[bright_cyan]{new_path}[/bright_cyan]'")
-                return CommandResult.failure("Path is not a directory")
-        except (FileNotFoundError, OSError, PermissionError) as e:
-            console.print(f"[bold red]✗[/bold red] Error accessing directory: {e}")
+            new_path = directory_service.resolve_directory_path(folder_path)
+        except ValueError as e:
+            console.print(f"[bold red]✗[/bold red] {str(e)}")
             return CommandResult.fail(str(e))
+
+        # Validate the directory
+        is_valid, error_msg = directory_service.validate_directory(new_path)
+        if not is_valid:
+            console.print(f"[bold red]✗[/bold red] {error_msg}")
+            return CommandResult.fail(error_msg)
         
         # Handle memory integration before changing directory
         memory_manager = session.get_memory_manager()
@@ -251,23 +239,26 @@ class FolderCommand(BaseCommand):
                 memory_manager.initialize_directory_memories(new_path)
                 console.print("[green]✓ Initialized new memory set for directory[/green]")
         
-        # Update working directory (this will handle memory switching)
-        old_path = self.config.base_dir
-        memory_info = session.update_working_directory(new_path)
-        
-        console.print(f"[bold green]✓[/bold green] Changed working directory")
-        console.print(f"[dim]From:[/dim] [bright_cyan]{old_path}[/bright_cyan]")
-        console.print(f"[dim]To:[/dim] [bright_cyan]{new_path}[/bright_cyan]")
+        # Use DirectoryService to change directory
+        result = directory_service.change_directory(new_path, session)
+
+        if result.success:
+            console.print(f"[bold green]✓[/bold green] Changed working directory")
+            console.print(f"[dim]From:[/dim] [bright_cyan]{result.old_path}[/bright_cyan]")
+            console.print(f"[dim]To:[/dim] [bright_cyan]{result.new_path}[/bright_cyan]")
+        else:
+            console.print(f"[bold red]✗[/bold red] {result.error}")
+            return CommandResult.fail(result.error)
         
         # Show memory status
-        if memory_info:
+        if result.memory_info:
             current_memories = memory_manager.get_directory_memories()
             global_memories = memory_manager.get_global_memories()
-            
+
             if current_memories or global_memories:
                 console.print(f"[dim]Loaded {len(current_memories)} directory + {len(global_memories)} global memories[/dim]")
-            
-            if memory_info.get("has_existing_memories"):
+
+            if result.memory_info.get("has_existing_memories"):
                 console.print("[dim]Using existing directory memories[/dim]")
-        
+
         return CommandResult.success()

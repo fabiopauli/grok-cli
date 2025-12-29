@@ -26,7 +26,15 @@ class ReadFileTool(BaseTool):
         """Execute read_file with enhanced error handling."""
         try:
             norm_path = normalize_path(args["file_path"], self.config)
-            
+
+            # Check if file is already in context (mounted or recently read)
+            if self.context_manager and self.context_manager.is_file_in_context(norm_path):
+                relative_path = Path(norm_path).name if self.config.use_relative_paths else norm_path
+                return ToolResult.ok(
+                    f"File '{relative_path}' is already available in context. "
+                    f"The file content was previously loaded and is still accessible."
+                )
+
             # Get model-specific context limit
             current_model = self.config.current_model
             max_tokens = self.config.get_max_tokens_for_model(current_model)
@@ -71,6 +79,10 @@ class ReadFileTool(BaseTool):
             encoding_data = read_result['encoding_info']
             if encoding_data.get('confidence', 1.0) < 0.8:
                 encoding_info = f"\nNote: File encoding detected as {encoding_data['detected_encoding']} with {encoding_data['confidence']:.1%} confidence."
+
+            # Track the file after successful read
+            if self.context_manager:
+                self.context_manager.add_file_to_context(norm_path)
 
             # Check if compact format is enabled
             if self.config.compact_tool_results:
@@ -118,7 +130,13 @@ class ReadMultipleFilesTool(BaseTool):
         for fp in args["file_paths"]:
             try:
                 norm_path = normalize_path(fp, self.config)
-                
+
+                # Check if file is already in context (mounted or recently read)
+                if self.context_manager and self.context_manager.is_file_in_context(norm_path):
+                    relative_path = Path(norm_path).name if self.config.use_relative_paths else fp
+                    response_data["files_read"][fp] = f"[Already in context: {relative_path}]"
+                    continue
+
                 # Use safe_file_read for comprehensive handling
                 read_result = safe_file_read(norm_path, max_size=max_single_file_size, config=self.config)
                 
@@ -134,7 +152,11 @@ class ReadMultipleFilesTool(BaseTool):
                 
                 total_content_size += content_size
                 response_data["files_read"][fp] = read_result['content']
-                
+
+                # Track the file after successful read
+                if self.context_manager:
+                    self.context_manager.add_file_to_context(norm_path)
+
                 # Collect warnings
                 if read_result['warnings']:
                     response_data["warnings"][fp] = read_result['warnings']
@@ -290,41 +312,32 @@ class ChangeWorkingDirectoryTool(BaseTool):
     def execute(self, args: Dict[str, Any]) -> ToolResult:
         """Execute change_working_directory to change the current working directory."""
         try:
-            from ..commands.file_commands import FolderCommand
-            from ..core.session import GrokSession
-            
+            from ..services.directory_service import DirectoryService
+
             new_directory = args["directory_path"]
-            
-            # Normalize the path
+            directory_service = DirectoryService(self.config)
+
+            # Resolve the directory path
             try:
-                if new_directory.startswith("~"):
-                    new_path = Path(new_directory).expanduser()
-                elif Path(new_directory).is_absolute():
-                    new_path = Path(new_directory)
-                else:
-                    # Relative to current working directory
-                    new_path = self.config.base_dir / new_directory
-                
-                new_path = new_path.resolve()
-                
-                # Validate path exists and is a directory
-                if not new_path.exists():
-                    return ToolResult.fail(f"Directory does not exist: '{new_path}'")
-                
-                if not new_path.is_dir():
-                    return ToolResult.fail(f"Path is not a directory: '{new_path}'")
-                
-            except (FileNotFoundError, OSError, PermissionError) as e:
-                return ToolResult.fail(f"Error accessing directory: {str(e)}")
-            
-            # Update the config's base directory
-            old_path = self.config.base_dir
-            self.config.base_dir = new_path
-            
-            # NOTE: In a real implementation, you'd want to get the session instance
-            # For now, we'll just update the config and report success
-            return ToolResult.ok(f"Working directory changed from '{old_path}' to '{new_path}'")
-            
+                new_path = directory_service.resolve_directory_path(new_directory)
+            except ValueError as e:
+                return ToolResult.fail(str(e))
+
+            # Validate the directory
+            is_valid, error_msg = directory_service.validate_directory(new_path)
+            if not is_valid:
+                return ToolResult.fail(error_msg)
+
+            # Change directory (without session for tools - non-interactive)
+            result = directory_service.change_directory(new_path, session=None)
+
+            if result.success:
+                return ToolResult.ok(
+                    f"Working directory changed from '{result.old_path}' to '{result.new_path}'"
+                )
+            else:
+                return ToolResult.fail(result.error)
+
         except Exception as e:
             return ToolResult.fail(f"Error changing working directory: {str(e)}")
 

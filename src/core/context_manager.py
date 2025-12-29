@@ -4,7 +4,7 @@
 Context Manager for Grok Assistant
 
 Coordinates context management using focused components.
-Refactored from God Object to thin orchestrator pattern (Phase 2).
+Refactored from God Object to thin orchestrator pattern.
 """
 
 import hashlib
@@ -38,7 +38,7 @@ class ContextManager:
     """
     Coordinates context management using focused components.
 
-    Phase 2 refactoring: Now a thin orchestrator instead of God Object.
+    Now a thin orchestrator instead of God Object.
     Delegates to TokenManager, TruncationStrategy, and ContextBuilder.
     """
 
@@ -59,7 +59,7 @@ class ContextManager:
         else:
             self.mode = ContextMode.SMART_TRUNCATION  # Fallback default
 
-        # Phase 2: Focused components (single responsibility)
+        # Focused components (single responsibility)
         self.token_manager = TokenManager(config)
         self.truncation_strategy = TruncationStrategy(config)
         self.context_builder = ContextBuilder(config)
@@ -71,11 +71,11 @@ class ContextManager:
         self.memories: list[dict[str, Any]] = []  # Persistent memories
         self.task_summary: str = ""  # Current task summary
 
-        # Phase 3: Layered Context Model - Mounted Resources
+        # Layered Context Model - Mounted Resources
         # Files mounted here persist across truncations
         self.mounted_files: dict[str, FileContext] = {}  # path -> FileContext
 
-        # Phase 2 Token Optimization: Deduplication tracking
+        # Token Optimization: Deduplication tracking
         self._files_in_context: set[str] = set()  # Normalized paths of files already in context
         self._system_message_hashes: set[str] = set()  # Track system message content hashes
 
@@ -110,7 +110,7 @@ class ContextManager:
     def cache_token_threshold(self) -> int:
         """
         Dynamic threshold that updates when model changes (90% of current model's limit).
-        Phase 2: Delegates to TokenManager.
+        Delegates to TokenManager.
         """
         return self.token_manager.get_cache_threshold()
 
@@ -118,7 +118,7 @@ class ContextManager:
     def smart_truncation_threshold(self) -> int:
         """
         Dynamic threshold that updates when model changes (70% of current model's limit).
-        Phase 2: Delegates to TokenManager.
+        Delegates to TokenManager.
         """
         return self.token_manager.get_smart_truncation_threshold()
 
@@ -386,7 +386,7 @@ class ContextManager:
         """
         Get the current context formatted for API calls.
 
-        Phase 3: Implements Layered Context Model:
+        Implements Layered Context Model:
         - Layer 1: System & Identity (Fixed)
         - Layer 2: Mounted Resources (Persistent, immune to truncation)
         - Layer 3: Dialogue Stream (Ephemeral, subject to truncation)
@@ -503,21 +503,21 @@ class ContextManager:
     def _build_system_prompt(self) -> str:
         """
         Build system prompt with memories included.
-        Phase 2: Delegates to ContextBuilder.
+        Delegates to ContextBuilder.
         """
         return self.context_builder.build_system_prompt(self.memories)
 
     def _build_context_from_turn_logs(self) -> list[dict[str, Any]]:
         """
         Build context messages from turn logs.
-        Phase 2: Delegates to ContextBuilder.
+        Delegates to ContextBuilder.
         """
         return self.context_builder.build_context_from_turns(self.turn_logs, self.mode)
 
     def _turn_to_messages(self, turn: Turn) -> list[dict[str, Any]]:
         """
         Convert a turn log back to message format.
-        Phase 2: Delegates to ContextBuilder.
+        Delegates to ContextBuilder.
         """
         return self.context_builder.turn_to_messages(turn)
 
@@ -541,7 +541,7 @@ class ContextManager:
     def _check_cache_truncation(self) -> None:
         """
         Check if cache mode needs truncation and apply if necessary.
-        Phase 2: Uses TokenManager to check threshold.
+        Uses TokenManager to check threshold.
         """
         if self.mode != ContextMode.CACHE_OPTIMIZED:
             return
@@ -553,7 +553,7 @@ class ContextManager:
     def _apply_cache_truncation(self) -> None:
         """
         Apply truncation for cache-optimized mode.
-        Phase 2: Delegates to TruncationStrategy.
+        Delegates to TruncationStrategy.
         """
         # Convert context to turn logs and apply smart truncation
         self._convert_full_context_to_turns()
@@ -563,7 +563,7 @@ class ContextManager:
     def _apply_smart_truncation(self) -> None:
         """
         Apply smart truncation keeping only essential turn logs.
-        Phase 2: Delegates to TruncationStrategy.
+        Delegates to TruncationStrategy.
         """
         # Get target token count from TokenManager
         target_tokens = self.token_manager.get_target_tokens_after_truncation()
@@ -584,7 +584,7 @@ class ContextManager:
     def _convert_full_context_to_turns(self) -> None:
         """
         Convert full context to turn logs.
-        Phase 2: Delegates to TruncationStrategy.
+        Delegates to TruncationStrategy.
         """
         if not self.full_context:
             return
@@ -601,8 +601,7 @@ class ContextManager:
     def get_context_stats(self) -> dict[str, Any]:
         """
         Get context usage statistics.
-        Phase 3: Includes mounted files information.
-        Phase 4: Includes structured state information.
+        Includes mounted files information and structured state information.
 
         Returns:
             Dictionary with context usage information

@@ -66,7 +66,7 @@ def initialize_application() -> AppContext:
     # Create AppContext with production dependencies
     context = AppContext.create_production(config=config)
 
-    # Create command registry (still uses config for now, will be updated in Phase 2.3)
+    # Create command registry
     command_registry = create_command_registry(config)
     context.set_command_registry(command_registry)
 
@@ -126,14 +126,14 @@ def handle_tool_calls(response, tool_executor, session):
                 # Continue processing remaining tools if any
                 continue
 
-            # Phase 3: Auto-mount files when read by AI
+            # Auto-mount files when read by AI
             if tool_call.function.name == "read_file":
                 # Parse arguments to get file path
                 try:
                     args = json.loads(tool_call.function.arguments)
                     file_path = args.get("file_path")
                     if file_path and not result.startswith("Error"):
-                        # Track file in context to prevent re-reading (Phase 2 Token Optimization)
+                        # Track file in context to prevent duplicate reads
                         if hasattr(session.context_manager, 'add_file_to_context'):
                             session.context_manager.add_file_to_context(file_path)
 
@@ -155,7 +155,7 @@ def handle_tool_calls(response, tool_executor, session):
                     result_data = json_module.loads(result)
                     files_read = result_data.get("files_read", {})
                     for file_path, content in files_read.items():
-                        # Track file in context to prevent re-reading (Phase 2 Token Optimization)
+                        # Track file in context to prevent duplicate reads
                         if hasattr(session.context_manager, 'add_file_to_context'):
                             session.context_manager.add_file_to_context(file_path)
                         session.mount_file(file_path, content)

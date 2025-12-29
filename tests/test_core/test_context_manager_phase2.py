@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Tests for Phase 2: Token Optimization (Deduplication)
+Tests for Token Optimization (Deduplication)
 
 This test suite validates:
 1. File content deduplication tracking

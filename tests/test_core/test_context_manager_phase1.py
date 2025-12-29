@@ -1,5 +1,5 @@
 """
-Phase 1 Tests: Stale Thresholds and Message Storage Unification
+Tests for Stale Thresholds and Message Storage Unification
 
 Tests for critical bug fixes in context management:
 1. Dynamic token thresholds that update on model switch

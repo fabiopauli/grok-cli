@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Tests for AppContext (Phase 2: Dependency Injection)
+Tests for AppContext (Dependency Injection)
 
 Tests the composition root that manages all application dependencies.
 """

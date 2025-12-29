@@ -423,7 +423,7 @@ class GrokSession:
             "should_prompt_user": True
         }
 
-    # Phase 3: Layered Context Model - File Mounting
+    # Layered Context Model - File Mounting
 
     def mount_file(self, path: str, content: str) -> None:
         """

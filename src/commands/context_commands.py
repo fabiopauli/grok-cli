@@ -40,7 +40,7 @@ class ContextCommand(BaseCommand):
         context_table.add_row("Max Tokens", f"{context_info['max_tokens']:,}")
         context_table.add_row("Usage %", f"{context_info['token_usage_percent']:.1f}%")
 
-        # Phase 3: Show mounted files information
+        # Show mounted files information
         if 'mounted_files_count' in context_info:
             mounted_count = context_info.get('mounted_files_count', 0)
             mounted_tokens = context_info.get('mounted_files_tokens', 0)
