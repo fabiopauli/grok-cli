@@ -29,6 +29,7 @@ from src.ui import (
     display_startup_banner,
     display_thinking_indicator,
     display_tool_call,
+    display_assistant_response,
     get_console,
     get_prompt_indicator,
     get_prompt_session,
@@ -320,7 +321,11 @@ def main_loop(context: AppContext) -> None:
 
                     # Display assistant response if it has content (before tool calls)
                     if hasattr(response, "content") and response.content:
-                        console.print(f"\nAssistant: {response.content}\n")
+                        display_assistant_response(
+                            response.content,
+                            enable_markdown=context.config.enable_markdown_rendering,
+                            code_theme=context.config.markdown_code_theme
+                        )
 
                     # Handle the current batch of tool calls (with interrupt handling)
                     try:
@@ -350,7 +355,11 @@ def main_loop(context: AppContext) -> None:
 
                 # Display final response (without tool calls)
                 if hasattr(response, "content") and response.content:
-                    console.print(f"\nAssistant: {response.content}\n")
+                    display_assistant_response(
+                        response.content,
+                        enable_markdown=context.config.enable_markdown_rendering,
+                        code_theme=context.config.markdown_code_theme
+                    )
 
                 # Complete the turn successfully
                 session.complete_turn("AI interaction completed")
@@ -414,7 +423,11 @@ def one_shot_mode(prompt: str, context: AppContext) -> None:
 
             # Display assistant response if it has content
             if hasattr(response, "content") and response.content:
-                console.print(f"\n{response.content}\n")
+                display_assistant_response(
+                    response.content,
+                    enable_markdown=context.config.enable_markdown_rendering,
+                    code_theme=context.config.markdown_code_theme
+                )
 
             # Handle tool calls
             handle_tool_calls(response, context.tool_executor, session)
@@ -425,7 +438,11 @@ def one_shot_mode(prompt: str, context: AppContext) -> None:
 
         # Display final response
         if hasattr(response, "content") and response.content:
-            console.print(f"\n{response.content}\n")
+            display_assistant_response(
+                response.content,
+                enable_markdown=context.config.enable_markdown_rendering,
+                code_theme=context.config.markdown_code_theme
+            )
 
         # Complete the turn
         session.complete_turn("One-shot prompt completed")

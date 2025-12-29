@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional, Union, Tuple
 
 from ..core.config import Config
+from ..utils.logging_config import get_logger
 
 
 def detect_available_shells(config: Config) -> None:
@@ -47,12 +48,12 @@ def log_dangerous_command(command: str, reason: str, executed: bool = False) -> 
         reason: Why it was flagged as dangerous
         executed: Whether it was actually executed
     """
-    from ..utils.logging_config import get_logger
     logger = get_logger("security")
 
     status = "EXECUTED" if executed else "BLOCKED"
-    logger.warning(f"[{status}] Dangerous command detected: {reason}")
-    logger.warning(f"Command: {command[:200]}...")  # Truncate for safety
+    # Truncate command for safety (max 200 chars)
+    truncated_command = command[:200] + "..." if len(command) > 200 else command
+    logger.warning(f"[{status}] Dangerous command detected: {reason}\nCommand: {truncated_command}")
 
 
 def run_bash_command(command: str, config: Config,
@@ -276,83 +277,98 @@ def is_dangerous_command(command: str) -> tuple[bool, str]:
     Returns:
         Tuple of (is_dangerous, reason)
     """
-    dangerous_patterns = [
-        # Destructive file operations
-        ('rm -rf /', "Recursive delete of root filesystem"),
-        ('rm -rf ~', "Recursive delete of home directory"),
-        ('rm -rf /*', "Recursive delete of all root contents"),
-        ('del /f /s /q', "Force delete all files (Windows)"),
-        ('rd /s /q', "Remove directory tree (Windows)"),
-
-        # Disk operations
-        ('format', "Format disk"),
-        ('fdisk', "Partition disk"),
-        ('dd if=', "Direct disk write"),
-        ('mkfs', "Create filesystem"),
-        ('wipefs', "Wipe filesystem signatures"),
-        ('shred', "Secure delete/overwrite"),
-
-        # System control
-        ('shutdown', "System shutdown"),
-        ('reboot', "System reboot"),
-        ('halt', "System halt"),
-        ('poweroff', "System power off"),
-        ('init 0', "System halt via init"),
-        ('init 6', "System reboot via init"),
-
-        # Permission changes
-        ('chown -R', "Recursive ownership change"),
-        ('chmod -R 777', "Recursive world-writable permissions"),
-        ('chmod -R 000', "Recursive remove all permissions"),
-
-        # Privilege escalation
-        ('sudo su', "Switch to root user"),
-        ('su root', "Switch to root user"),
-        ('sudo -i', "Interactive root shell"),
-
-        # Remote code execution
-        ('curl | bash', "Pipe remote script to shell"),
-        ('curl | sh', "Pipe remote script to shell"),
-        ('wget | bash', "Pipe remote script to shell"),
-        ('wget | sh', "Pipe remote script to shell"),
-        ('$(curl', "Command substitution with curl"),
-        ('$(wget', "Command substitution with wget"),
-        ('`curl', "Backtick substitution with curl"),
-        ('`wget', "Backtick substitution with wget"),
-
-        # Code execution
-        ('eval $', "Eval with variable expansion"),
-        ('eval "', "Eval with string"),
-        ("eval '", "Eval with string"),
-        ('exec(', "Python exec"),
-        ('python -c', "Python command execution"),
-        ('perl -e', "Perl command execution"),
-        ('ruby -e', "Ruby command execution"),
-
-        # Network attacks
-        (':(){ :|:& };:', "Fork bomb"),
-        ('> /dev/sda', "Write to disk device"),
-        ('> /dev/null', "Redirect to null (data loss risk)"),
-        ('mkfifo', "Create named pipe (can be used for attacks)"),
-
-        # Credential access
-        ('cat /etc/shadow', "Read password hashes"),
-        ('cat /etc/passwd', "Read user database"),
-        ('cat ~/.ssh', "Read SSH keys"),
-        ('cat ~/.aws', "Read AWS credentials"),
-
-        # Git destructive
-        ('git push --force', "Force push (can lose commits)"),
-        ('git push -f', "Force push (can lose commits)"),
-        ('git reset --hard', "Hard reset (loses uncommitted changes)"),
-        ('git clean -fd', "Remove untracked files"),
-    ]
+    import re
 
     command_lower = command.lower()
 
-    for pattern, reason in dangerous_patterns:
+    # Destructive file operations
+    if re.search(r'\brm\b.*-rf\b', command_lower):
+        return True, "Recursive delete (rm -rf)"
+
+    if 'del /f /s /q' in command_lower or 'rd /s /q' in command_lower:
+        return True, "Force delete all files (Windows)"
+
+    # Disk operations
+    for pattern in ['format', 'fdisk', 'dd if=', 'mkfs', 'wipefs', 'shred']:
         if pattern in command_lower:
-            return True, reason
+            return True, f"Dangerous disk operation: {pattern}"
+
+    # System control
+    for pattern in ['shutdown', 'reboot', 'halt', 'poweroff', 'init 0', 'init 6']:
+        if pattern in command_lower:
+            return True, f"System control: {pattern}"
+
+    # Permission changes
+    if 'chown -r' in command_lower:
+        return True, "Recursive ownership change"
+
+    if re.search(r'chmod\b.*\b777\b', command_lower):
+        return True, "chmod 777 (world-writable permissions)"
+
+    if 'chmod -r 000' in command_lower:
+        return True, "Recursive remove all permissions"
+
+    # Privilege escalation
+    for pattern in ['sudo su', 'su root', 'sudo -i']:
+        if pattern in command_lower:
+            return True, f"Privilege escalation: {pattern}"
+
+    # Remote code execution - pipe to shell
+    if re.search(r'(curl|wget)[^|]*\|\s*(bash|sh)\b', command_lower):
+        return True, "Pipe remote script to shell"
+
+    # Command substitution with curl/wget
+    if re.search(r'\$\(\s*(curl|wget)\b', command_lower) or re.search(r'`\s*(curl|wget)\b', command_lower):
+        return True, "Command substitution with curl/wget"
+
+    # Code execution
+    if re.search(r'\beval\b', command_lower):
+        return True, "eval command"
+
+    if 'exec(' in command_lower:
+        return True, "Python exec"
+
+    if 'python -c' in command_lower or 'python3 -c' in command_lower:
+        return True, "Python command execution"
+
+    if 'perl -e' in command_lower:
+        return True, "Perl command execution"
+
+    if 'ruby -e' in command_lower:
+        return True, "Ruby command execution"
+
+    # Network attacks
+    if ':(){ :|:& };:' in command_lower:
+        return True, "Fork bomb"
+
+    if '> /dev/sda' in command_lower or '> /dev/sd' in command_lower:
+        return True, "Write to disk device"
+
+    if 'mkfifo' in command_lower:
+        return True, "Create named pipe"
+
+    # Credential access
+    if 'cat /etc/shadow' in command_lower:
+        return True, "Read password hashes"
+
+    if 'cat /etc/passwd' in command_lower:
+        return True, "Read user database"
+
+    if re.search(r'cat\s+~?/\.ssh', command_lower):
+        return True, "Read SSH keys"
+
+    if re.search(r'cat\s+~?/\.aws', command_lower):
+        return True, "Read AWS credentials"
+
+    # Git destructive
+    if 'git push --force' in command_lower or 'git push -f' in command_lower:
+        return True, "Force push (can lose commits)"
+
+    if 'git reset --hard' in command_lower:
+        return True, "Hard reset (loses uncommitted changes)"
+
+    if 'git clean -fd' in command_lower or 'git clean -df' in command_lower:
+        return True, "Remove untracked files"
 
     # Check for obfuscation
     if command_lower.count('|') > 3:

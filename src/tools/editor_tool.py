@@ -213,6 +213,10 @@ class ApplyDiffPatchTool(BaseTool):
                 hunk_start = i
                 break
 
+        # If no hunk header found, raise error (invalid diff format)
+        if hunk_start == 0 and not diff_lines[0].startswith('@@'):
+            raise ValueError("Invalid diff format: no hunk header found")
+
         # Apply hunks
         result = list(original_lines)
         offset = 0  # Track line number offset from previous hunks
@@ -230,32 +234,47 @@ class ApplyDiffPatchTool(BaseTool):
                 old_start = int(match.group(1)) - 1  # Convert to 0-indexed
                 old_count = int(match.group(2)) if match.group(2) else 1
 
-                # Process hunk lines
+                # Process hunk lines - collect changes
                 i += 1
-                hunk_deletions = []
-                hunk_additions = []
+                hunk_lines = []
 
                 while i < len(diff_lines) and not diff_lines[i].startswith('@@'):
                     hunk_line = diff_lines[i]
                     if hunk_line.startswith('-'):
-                        hunk_deletions.append(hunk_line[1:])
+                        hunk_lines.append(('-', hunk_line[1:]))
                     elif hunk_line.startswith('+'):
-                        hunk_additions.append(hunk_line[1:] + '\n')
-                    elif hunk_line.startswith(' ') or hunk_line == '':
-                        # Context line - verify match
-                        pass
+                        hunk_lines.append(('+', hunk_line[1:]))
+                    elif hunk_line.startswith(' '):
+                        hunk_lines.append((' ', hunk_line[1:]))
+                    elif hunk_line == '':
+                        # Empty line - treat as context
+                        hunk_lines.append((' ', ''))
                     i += 1
 
-                # Apply the hunk
-                actual_start = old_start + offset
+                # Apply the hunk changes sequentially
+                actual_pos = old_start + offset
+                net_change = 0  # Track net line changes for this hunk
 
-                # Remove old lines and insert new ones
-                del result[actual_start:actual_start + len(hunk_deletions)]
-                for j, add_line in enumerate(hunk_additions):
-                    result.insert(actual_start + j, add_line)
+                # Process each hunk line
+                for op, content in hunk_lines:
+                    if op == ' ':
+                        # Context line - advance position
+                        actual_pos += 1
+                    elif op == '-':
+                        # Deletion - remove line at current position
+                        # Position doesn't advance (next line shifts into current position)
+                        if actual_pos < len(result):
+                            del result[actual_pos]
+                            net_change -= 1
+                    elif op == '+':
+                        # Addition - insert line at current position and advance
+                        add_line = content + '\n' if not content.endswith('\n') else content
+                        result.insert(actual_pos, add_line)
+                        actual_pos += 1
+                        net_change += 1
 
-                # Update offset
-                offset += len(hunk_additions) - len(hunk_deletions)
+                # Update offset for next hunk
+                offset += net_change
             else:
                 i += 1
 

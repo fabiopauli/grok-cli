@@ -10,7 +10,7 @@ from .console import (
     display_model_switch, display_file_added, display_directory_tree,
     display_error, display_success, display_info, display_warning,
     clear_screen, display_thinking_indicator, display_tool_call,
-    display_security_confirmation
+    display_security_confirmation, display_assistant_response
 )
 
 from .formatters import (
@@ -26,8 +26,8 @@ __all__ = [
     'display_model_switch', 'display_file_added', 'display_directory_tree',
     'display_error', 'display_success', 'display_info', 'display_warning',
     'clear_screen', 'display_thinking_indicator', 'display_tool_call',
-    'display_security_confirmation',
-    
+    'display_security_confirmation', 'display_assistant_response',
+
     # Formatter functions
     'format_conversation_log', 'format_file_content', 'format_directory_tree',
     'format_context_stats', 'format_tool_result', 'format_error_message',

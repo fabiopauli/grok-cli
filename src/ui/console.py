@@ -16,6 +16,7 @@ from prompt_toolkit.styles import Style as PromptStyle
 # Rich console imports
 from rich.console import Console
 from rich.panel import Panel
+from rich.markdown import Markdown
 
 # Global console instance
 _console = Console()
@@ -185,6 +186,48 @@ def display_security_confirmation(command: str, command_type: str) -> bool:
         return response.strip().lower() in ["y", "yes"]
     except (KeyboardInterrupt, EOFError):
         return False
+
+
+def display_assistant_response(response_content: str, enable_markdown: bool = False,
+                               code_theme: str = "monokai") -> None:
+    """
+    Display assistant response with optional markdown rendering.
+
+    This function provides consistent formatting for LLM responses with opt-in
+    markdown rendering. Works seamlessly in SSH/remote environments.
+
+    Args:
+        response_content: The assistant's response text
+        enable_markdown: Whether to render as markdown (default: False)
+        code_theme: Syntax highlighting theme for code blocks (default: "monokai")
+
+    Design Notes:
+        - No screen clearing or cursor manipulation (SSH-friendly)
+        - Normal scrolling behavior maintained
+        - Copy-paste friendly output
+        - Falls back gracefully if markdown parsing fails
+    """
+    if not response_content or not response_content.strip():
+        return
+
+    # Add newline before response for readability
+    _console.print()
+
+    if enable_markdown:
+        try:
+            # Create Markdown object with custom theme for code blocks
+            md = Markdown(response_content, code_theme=code_theme)
+            _console.print(md)
+        except Exception as e:
+            # Graceful fallback to plain text if markdown rendering fails
+            _console.print("[dim yellow]Warning: Markdown rendering failed, showing plain text[/dim yellow]")
+            _console.print(f"Assistant: {response_content}")
+    else:
+        # Plain text display (current behavior)
+        _console.print(f"Assistant: {response_content}")
+
+    # Add newline after response for readability
+    _console.print()
 
 
 def create_ui_adapter():

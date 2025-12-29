@@ -19,6 +19,7 @@ class TestApplyDiffPatchTool:
     def tool(self):
         """Create ApplyDiffPatchTool instance."""
         config = Config()
+        config.test_mode = True  # Allow temp paths in tests
         return ApplyDiffPatchTool(config)
 
     @pytest.fixture

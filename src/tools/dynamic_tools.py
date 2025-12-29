@@ -192,8 +192,6 @@ class ToolValidator:
 class DynamicToolLoader:
     """Loads and manages custom tools from the filesystem."""
 
-    CUSTOM_TOOLS_DIR = Path.home() / ".grok" / "custom_tools"
-
     def __init__(self, config: Config):
         """
         Initialize the dynamic tool loader.
@@ -204,6 +202,15 @@ class DynamicToolLoader:
         self.config = config
         self._loaded_tools: Dict[str, BaseTool] = {}
         self._tool_schemas: Dict[str, Dict[str, Any]] = {}
+
+        # Use config's custom_tools_dir if set, otherwise use default
+        if hasattr(config, 'custom_tools_dir') and config.custom_tools_dir:
+            self.CUSTOM_TOOLS_DIR = Path(config.custom_tools_dir)
+        else:
+            self.CUSTOM_TOOLS_DIR = Path.home() / ".grok" / "custom_tools"
+
+        # Ensure directory exists
+        self.ensure_tools_directory()
 
     def ensure_tools_directory(self) -> Path:
         """Ensure the custom tools directory exists."""
@@ -293,7 +300,7 @@ class DynamicToolLoader:
         """Get schemas for all loaded custom tools."""
         return list(self._tool_schemas.values())
 
-    def save_tool(self, name: str, source: str, schema: Dict[str, Any]) -> Path:
+    def save_tool(self, name: str, source: str, schema: Dict[str, Any]) -> tuple[bool, str]:
         """
         Save a new custom tool to disk.
 
@@ -303,35 +310,42 @@ class DynamicToolLoader:
             schema: Tool schema definition
 
         Returns:
-            Path to saved file
+            Tuple of (success, error_message)
         """
-        self.ensure_tools_directory()
+        try:
+            self.ensure_tools_directory()
 
-        # Validate
-        is_valid, error = ToolValidator.validate_tool_code(source)
-        if not is_valid:
-            raise ValueError(f"Invalid tool code: {error}")
+            # Validate
+            is_valid, error = ToolValidator.validate_tool_code(source)
+            if not is_valid:
+                return False, f"Invalid tool code: {error}"
 
-        is_valid, error = ToolValidator.validate_tool_schema(schema)
-        if not is_valid:
-            raise ValueError(f"Invalid tool schema: {error}")
+            is_valid, error = ToolValidator.validate_tool_schema(schema)
+            if not is_valid:
+                return False, f"Invalid tool schema: {error}"
 
-        # Save file
-        safe_name = "".join(c for c in name if c.isalnum() or c == "_").lower()
-        tool_file = self.CUSTOM_TOOLS_DIR / f"{safe_name}_tool.py"
+            # Save file
+            safe_name = "".join(c for c in name if c.isalnum() or c == "_").lower()
+            tool_file = self.CUSTOM_TOOLS_DIR / f"{safe_name}.py"
 
-        # Add schema as module-level function
-        schema_code = f'''
+            # Add schema as module-level function
+            schema_code = f'''
 
 def get_tool_schema():
     """Return the tool schema for API registration."""
     return {repr(schema)}
 '''
 
-        full_source = source + "\n" + schema_code
-        tool_file.write_text(full_source)
+            full_source = source + "\n" + schema_code
+            tool_file.write_text(full_source)
 
-        return tool_file
+            # Store the schema for this tool
+            self._tool_schemas[name] = schema
+
+            return True, ""
+
+        except Exception as e:
+            return False, str(e)
 
 
 class CreateToolTool(BaseTool):
@@ -390,7 +404,13 @@ class CreateToolTool(BaseTool):
             }
 
             # Validate and save
-            tool_file = self.loader.save_tool(name, source_code, schema)
+            success, error = self.loader.save_tool(name, source_code, schema)
+            if not success:
+                return ToolResult.fail(f"Failed to save tool: {error}")
+
+            # Get the tool file path
+            safe_name = "".join(c for c in name if c.isalnum() or c == "_").lower()
+            tool_file = self.loader.CUSTOM_TOOLS_DIR / f"{safe_name}.py"
 
             # Load the new tool
             tool = self.loader._load_tool_from_file(tool_file)

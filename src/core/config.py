@@ -76,10 +76,15 @@ class Config:
     require_powershell_confirmation: bool = True
     require_bash_confirmation: bool = True
     agent_mode: bool = False  # Agentic mode: disables confirmations for autonomous operation
+    test_mode: bool = False  # Test mode: allows paths outside project directory
 
     # Self-evolving mode
     self_mode: bool = False  # Whether AI can create new tools
     custom_tools_dir: Path = field(default_factory=lambda: Path.home() / ".grok" / "custom_tools")
+
+    # UI/Display settings
+    enable_markdown_rendering: bool = True  # OFF by default, opt-in. Now set to True
+    markdown_code_theme: str = "monokai"  # Match existing syntax highlighting theme
 
     # Context management mode
     initial_context_mode: str = "smart_truncation"  # Default: smart_truncation or cache_optimized
@@ -213,7 +218,13 @@ class Config:
             security_config = config_data['security']
             self.require_powershell_confirmation = security_config.get('require_powershell_confirmation', self.require_powershell_confirmation)
             self.require_bash_confirmation = security_config.get('require_bash_confirmation', self.require_bash_confirmation)
-        
+
+        # UI settings
+        if 'ui' in config_data:
+            ui_config = config_data['ui']
+            self.enable_markdown_rendering = ui_config.get('enable_markdown_rendering', self.enable_markdown_rendering)
+            self.markdown_code_theme = ui_config.get('markdown_code_theme', self.markdown_code_theme)
+
         # File exclusions
         if 'excluded_files' in config_data:
             self.excluded_files.update(config_data['excluded_files'])
