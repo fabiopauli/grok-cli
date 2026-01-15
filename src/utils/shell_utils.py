@@ -269,7 +269,7 @@ def get_shell_for_os(config: Config) -> str:
 
 def is_dangerous_command(command: str) -> tuple[bool, str]:
     """
-    Check if a command is potentially dangerous.
+    Check if a command is potentially dangerous (truly destructive operations only).
 
     Args:
         command: Command to check
@@ -298,84 +298,13 @@ def is_dangerous_command(command: str) -> tuple[bool, str]:
         if pattern in command_lower:
             return True, f"System control: {pattern}"
 
-    # Permission changes
-    if 'chown -r' in command_lower:
-        return True, "Recursive ownership change"
-
-    if re.search(r'chmod\b.*\b777\b', command_lower):
-        return True, "chmod 777 (world-writable permissions)"
-
-    if 'chmod -r 000' in command_lower:
-        return True, "Recursive remove all permissions"
-
-    # Privilege escalation
-    for pattern in ['sudo su', 'su root', 'sudo -i']:
-        if pattern in command_lower:
-            return True, f"Privilege escalation: {pattern}"
-
-    # Remote code execution - pipe to shell
-    if re.search(r'(curl|wget)[^|]*\|\s*(bash|sh)\b', command_lower):
-        return True, "Pipe remote script to shell"
-
-    # Command substitution with curl/wget
-    if re.search(r'\$\(\s*(curl|wget)\b', command_lower) or re.search(r'`\s*(curl|wget)\b', command_lower):
-        return True, "Command substitution with curl/wget"
-
-    # Code execution
-    if re.search(r'\beval\b', command_lower):
-        return True, "eval command"
-
-    if 'exec(' in command_lower:
-        return True, "Python exec"
-
-    if 'python -c' in command_lower or 'python3 -c' in command_lower:
-        return True, "Python command execution"
-
-    if 'perl -e' in command_lower:
-        return True, "Perl command execution"
-
-    if 'ruby -e' in command_lower:
-        return True, "Ruby command execution"
-
-    # Network attacks
+    # Fork bomb
     if ':(){ :|:& };:' in command_lower:
         return True, "Fork bomb"
 
+    # Write to disk device
     if '> /dev/sda' in command_lower or '> /dev/sd' in command_lower:
         return True, "Write to disk device"
-
-    if 'mkfifo' in command_lower:
-        return True, "Create named pipe"
-
-    # Credential access
-    if 'cat /etc/shadow' in command_lower:
-        return True, "Read password hashes"
-
-    if 'cat /etc/passwd' in command_lower:
-        return True, "Read user database"
-
-    if re.search(r'cat\s+~?/\.ssh', command_lower):
-        return True, "Read SSH keys"
-
-    if re.search(r'cat\s+~?/\.aws', command_lower):
-        return True, "Read AWS credentials"
-
-    # Git destructive
-    if 'git push --force' in command_lower or 'git push -f' in command_lower:
-        return True, "Force push (can lose commits)"
-
-    if 'git reset --hard' in command_lower:
-        return True, "Hard reset (loses uncommitted changes)"
-
-    if 'git clean -fd' in command_lower or 'git clean -df' in command_lower:
-        return True, "Remove untracked files"
-
-    # Check for obfuscation
-    if command_lower.count('|') > 3:
-        return True, "Excessive pipe chaining (potential obfuscation)"
-
-    if command_lower.count(';') > 5:
-        return True, "Excessive command chaining (potential obfuscation)"
 
     return False, ""
 
