@@ -63,6 +63,30 @@ class BaseTool(ABC):
         """
         self.context_manager = context_manager
 
+    def success(self, message: str) -> ToolResult:
+        """
+        Helper method to create a successful ToolResult.
+
+        Args:
+            message: Success message
+
+        Returns:
+            ToolResult indicating success
+        """
+        return ToolResult.ok(message)
+
+    def error(self, message: str) -> ToolResult:
+        """
+        Helper method to create an error ToolResult.
+
+        Args:
+            message: Error message
+
+        Returns:
+            ToolResult indicating failure
+        """
+        return ToolResult.fail(message)
+
 
 class ToolExecutor:
     """Tool execution coordinator."""
