@@ -172,6 +172,11 @@ class OrchestratorTool(BaseTool):
                     "type": "integer",
                     "description": "Maximum time to wait for completion (default: 300)",
                     "default": 300
+                },
+                "max_tokens": {
+                    "type": "integer",
+                    "description": "Maximum total token budget for orchestration (default: 100000). Prevents runaway costs.",
+                    "default": 100000
                 }
             },
             "required": ["goal"]
@@ -185,6 +190,7 @@ class OrchestratorTool(BaseTool):
             goal: The complex goal
             max_agents: Maximum concurrent agents
             timeout_seconds: Timeout in seconds
+            max_tokens: Maximum token budget for orchestration
 
         Returns:
             ToolResult with orchestration results
@@ -192,6 +198,7 @@ class OrchestratorTool(BaseTool):
         goal = kwargs.get("goal")
         max_agents = kwargs.get("max_agents", 3)
         timeout_seconds = kwargs.get("timeout_seconds", 300)
+        max_tokens = kwargs.get("max_tokens", 100000)
 
         if not goal:
             return self.error("Goal is required for orchestration")
@@ -214,7 +221,8 @@ class OrchestratorTool(BaseTool):
                 decomposition,
                 orchestration_id,
                 max_agents,
-                timeout_seconds
+                timeout_seconds,
+                max_tokens
             )
         except Exception as e:
             return self.error(f"Orchestration failed: {str(e)}")
@@ -345,7 +353,8 @@ Return only the JSON array."""
         decomposition: TaskDecomposition,
         orchestration_id: str,
         max_agents: int,
-        timeout_seconds: int
+        timeout_seconds: int,
+        max_tokens: int
     ) -> Dict[int, str]:
         """
         Execute the orchestration by spawning agents.
@@ -355,6 +364,7 @@ Return only the JSON array."""
             orchestration_id: Orchestration ID
             max_agents: Max concurrent agents
             timeout_seconds: Timeout
+            max_tokens: Maximum token budget
 
         Returns:
             Dictionary mapping task_id to result
@@ -362,6 +372,8 @@ Return only the JSON array."""
         results = {}
         start_time = time.time()
         running_agents = {}  # agent_id -> task_id
+        tokens_used = 0  # Track estimated token usage
+        max_retries_per_task = 3  # Prevent infinite retry loops
 
         # Post orchestration start to blackboard
         self.blackboard.post_message(
@@ -374,6 +386,14 @@ Return only the JSON array."""
             # Check timeout
             if time.time() - start_time > timeout_seconds:
                 raise TimeoutError(f"Orchestration timed out after {timeout_seconds}s")
+
+            # Check token budget
+            if tokens_used > max_tokens:
+                self.logger.warning(f"Token budget exceeded: {tokens_used}/{max_tokens}")
+                raise RuntimeError(
+                    f"Orchestration aborted: exceeded token budget of {max_tokens} tokens. "
+                    f"Used approximately {tokens_used} tokens."
+                )
 
             # Get ready tasks
             ready_tasks = decomposition.get_ready_tasks()
@@ -395,6 +415,10 @@ Return only the JSON array."""
                     task_id = running_agents[agent_id]
                     result_content = message["content"]
 
+                    # Estimate token usage (rough approximation: 4 chars per token)
+                    result_tokens = len(result_content) // 4
+                    tokens_used += result_tokens
+
                     # Mark task as completed
                     decomposition.mark_task_completed(task_id, result_content)
                     results[task_id] = result_content
@@ -402,7 +426,7 @@ Return only the JSON array."""
                     # Remove from running
                     del running_agents[agent_id]
 
-                    self.logger.info(f"Task {task_id} completed by {agent_id}")
+                    self.logger.info(f"Task {task_id} completed by {agent_id} (~{result_tokens} tokens)")
 
             # Brief sleep to avoid busy waiting
             time.sleep(1)

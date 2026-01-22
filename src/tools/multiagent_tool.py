@@ -7,12 +7,15 @@ Implements role-based multi-agent decomposition with shared communication
 via blackboard pattern.
 """
 
+import atexit
 import json
+import signal
 import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import Any, Optional
+from filelock import FileLock
 
 from .base import BaseTool, ToolResult
 from ..core.config import Config
@@ -29,11 +32,95 @@ class AgentRole:
     TESTER = "tester"
 
     ROLE_PROMPTS = {
-        PLANNER: "You are a planning agent. Create detailed step-by-step plans for coding tasks. Focus on breaking down complex tasks into manageable steps.",
-        CODER: "You are a coding agent. Implement code changes based on provided plans. Focus on writing clean, correct code.",
-        REVIEWER: "You are a code review agent. Review code changes for correctness, style, and potential issues. Provide constructive feedback.",
-        RESEARCHER: "You are a research agent. Search codebases and documentation to find relevant information. Focus on thorough exploration.",
-        TESTER: "You are a testing agent. Write and run tests to verify code correctness. Focus on comprehensive test coverage."
+        PLANNER: """You are a PLANNING SPECIALIST agent. Your expertise is creating detailed, actionable plans.
+
+**Your Core Responsibilities:**
+- Break down complex goals into clear, sequential steps
+- Identify dependencies between tasks
+- Estimate complexity and suggest appropriate approaches
+- Consider edge cases and potential risks
+- Produce structured plans with clear success criteria
+
+**Workflow:**
+1. Analyze the goal thoroughly
+2. Identify all sub-tasks and their relationships
+3. Organize tasks in logical dependency order
+4. Document assumptions and constraints
+5. Provide clear deliverables for each step
+
+**Output:** Your final result must be a structured plan posted to the blackboard.""",
+
+        CODER: """You are a CODING SPECIALIST agent. Your expertise is implementing code changes efficiently and correctly.
+
+**Your Core Responsibilities:**
+- Implement features following specifications and plans
+- Write clean, maintainable, well-documented code
+- Follow project conventions and best practices
+- Ensure code is syntactically correct before submitting
+- Handle edge cases and error conditions
+
+**Workflow:**
+1. Read and understand existing code context
+2. Implement changes incrementally
+3. Verify syntax and basic functionality
+4. Document complex logic with comments
+5. Report implementation details and any challenges
+
+**Output:** Your final result must include what was implemented and any important technical decisions.""",
+
+        REVIEWER: """You are a CODE REVIEW SPECIALIST agent. Your expertise is ensuring code quality and security.
+
+**Your Core Responsibilities:**
+- Review code for correctness and style
+- Identify potential bugs, security issues, and performance problems
+- Suggest improvements and best practices
+- Ensure code follows project conventions
+- Provide constructive, actionable feedback
+
+**Review Checklist:**
+- Correctness: Does the code do what it's supposed to?
+- Security: Are there vulnerabilities (injection, XSS, auth issues)?
+- Performance: Are there obvious inefficiencies?
+- Style: Does it follow project conventions?
+- Maintainability: Is it readable and well-structured?
+
+**Output:** Your final result must be a structured review with findings and recommendations.""",
+
+        RESEARCHER: """You are a RESEARCH SPECIALIST agent. Your expertise is finding and analyzing information.
+
+**Your Core Responsibilities:**
+- Search codebases for relevant patterns and implementations
+- Explore documentation and examples
+- Identify best practices and common pitfalls
+- Provide comprehensive context for decision-making
+- Summarize findings clearly and concisely
+
+**Research Strategy:**
+1. Use grep_codebase for code patterns
+2. Use inspect_code_structure for file overviews
+3. Read relevant files for detailed understanding
+4. Synthesize findings into actionable insights
+5. Document sources and references
+
+**Output:** Your final result must include key findings, relevant code locations, and recommendations.""",
+
+        TESTER: """You are a TESTING SPECIALIST agent. Your expertise is ensuring code correctness through comprehensive testing.
+
+**Your Core Responsibilities:**
+- Design test cases covering normal and edge cases
+- Write clear, maintainable test code
+- Execute tests and report results
+- Identify gaps in test coverage
+- Suggest improvements for testability
+
+**Testing Workflow:**
+1. Understand what functionality needs testing
+2. Design test cases (happy path, edge cases, error cases)
+3. Write test code following project conventions
+4. Execute tests and capture results
+5. Report pass/fail status with details
+
+**Output:** Your final result must include test coverage summary, pass/fail status, and any issues found."""
     }
 
 
@@ -52,6 +139,7 @@ class BlackboardCommunication:
             blackboard_path: Path to blackboard JSON file
         """
         self.blackboard_path = blackboard_path
+        self.lock_path = Path(str(blackboard_path) + ".lock")
         self.logger = get_logger("blackboard")
 
         # Initialize blackboard if it doesn't exist
@@ -68,18 +156,22 @@ class BlackboardCommunication:
         self._write_blackboard(data)
 
     def _read_blackboard(self) -> dict:
-        """Read blackboard data."""
+        """Read blackboard data with file locking to prevent race conditions."""
+        lock = FileLock(self.lock_path, timeout=10)
         try:
-            with open(self.blackboard_path, encoding="utf-8") as f:
-                return json.load(f)
+            with lock:
+                with open(self.blackboard_path, encoding="utf-8") as f:
+                    return json.load(f)
         except (json.JSONDecodeError, FileNotFoundError):
             self._initialize_blackboard()
             return self._read_blackboard()
 
     def _write_blackboard(self, data: dict) -> None:
-        """Write blackboard data."""
-        with open(self.blackboard_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        """Write blackboard data with file locking to prevent race conditions."""
+        lock = FileLock(self.lock_path, timeout=10)
+        with lock:
+            with open(self.blackboard_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
 
     def post_message(self, agent_id: str, message: str, message_type: str = "info") -> None:
         """
@@ -150,6 +242,10 @@ class SpawnAgentTool(BaseTool):
     that communicate via shared blackboard.
     """
 
+    # Class-level registry for process cleanup
+    _process_registry = []
+    _cleanup_registered = False
+
     def __init__(self, config: Config):
         """
         Initialize spawn agent tool.
@@ -164,6 +260,49 @@ class SpawnAgentTool(BaseTool):
         # Setup blackboard
         self.blackboard_path = config.base_dir / ".grok_blackboard.json"
         self.blackboard = BlackboardCommunication(self.blackboard_path)
+
+        # Register cleanup handlers (only once)
+        if not SpawnAgentTool._cleanup_registered:
+            atexit.register(SpawnAgentTool._cleanup_all_processes)
+            signal.signal(signal.SIGTERM, SpawnAgentTool._signal_handler)
+            signal.signal(signal.SIGINT, SpawnAgentTool._signal_handler)
+            SpawnAgentTool._cleanup_registered = True
+
+    @classmethod
+    def _cleanup_all_processes(cls):
+        """Cleanup all spawned agent processes."""
+        logger = get_logger("spawn_agent")
+        if cls._process_registry:
+            logger.info(f"Cleaning up {len(cls._process_registry)} spawned agent processes...")
+            for process in cls._process_registry:
+                try:
+                    if process.poll() is None:  # Process still running
+                        logger.debug(f"Terminating agent process PID {process.pid}")
+                        process.terminate()
+                        # Give it 2 seconds to terminate gracefully
+                        try:
+                            process.wait(timeout=2)
+                        except subprocess.TimeoutExpired:
+                            logger.warning(f"Force killing agent process PID {process.pid}")
+                            process.kill()
+                except Exception as e:
+                    logger.error(f"Error cleaning up process: {e}")
+            cls._process_registry.clear()
+
+    @classmethod
+    def _signal_handler(cls, signum, frame):
+        """Handle termination signals by cleaning up processes."""
+        logger = get_logger("spawn_agent")
+        logger.info(f"Received signal {signum}, cleaning up agent processes...")
+        cls._cleanup_all_processes()
+        # Re-raise the signal to allow normal termination
+        signal.signal(signum, signal.SIG_DFL)
+        signal.raise_signal(signum)
+
+    @classmethod
+    def cleanup_finished_processes(cls):
+        """Remove finished processes from the registry."""
+        cls._process_registry = [p for p in cls._process_registry if p.poll() is None]
 
     def get_name(self) -> str:
         """Get the tool name."""
@@ -258,57 +397,70 @@ class SpawnAgentTool(BaseTool):
             return self.error(f"Failed to spawn agent: {str(e)}")
 
     def _create_agent_prompt(self, role: str, task: str, context: str, agent_id: str) -> str:
-        """Create prompt for agent."""
+        """Create prompt for agent with comprehensive role guidance."""
         role_prompt = AgentRole.ROLE_PROMPTS.get(role, "")
 
         prompt = f"""{role_prompt}
 
-Your ID: {agent_id}
-Your task: {task}
+**AGENT SESSION INFO:**
+- Agent ID: {agent_id}
+- Role: {role.upper()}
+- Assigned Task: {task}
 """
         if context:
-            prompt += f"\nContext: {context}"
+            prompt += f"- Additional Context: {context}\n"
 
         prompt += f"""
+**CRITICAL INSTRUCTIONS:**
+1. **Stay Focused:** Execute ONLY your assigned task. Do not deviate or take on additional work.
+2. **Be Autonomous:** You have full access to tools. Read files, execute commands, make changes as needed.
+3. **Communicate Progress:** Use write_to_blackboard to share important updates and findings.
+4. **Report Completion:** When finished, use write_to_blackboard with message_type='result' to report your final outcome.
+5. **Be Efficient:** Complete your task in the minimum number of steps. Avoid over-engineering.
+6. **Handle Errors:** If you encounter errors, attempt to resolve them. If unable to proceed, report the blocker.
 
-IMPORTANT:
-- Focus ONLY on your assigned task
-- Use the write_to_blackboard tool to share your results
-- Keep your actions concise and focused
-- When complete, write your final result to the blackboard with type 'result'
+**BLACKBOARD COMMUNICATION:**
+- Location: {self.blackboard_path}
+- Your agent ID: {agent_id}
+- Post updates: write_to_blackboard(message="update text", message_type="info")
+- Post results: write_to_blackboard(message="final result", message_type="result")
+- Read others: read_blackboard() to see messages from coordinator or other agents
 
-Blackboard file: {self.blackboard_path}
-
-Begin your task now."""
+**TASK EXECUTION:**
+Begin your task immediately. Work methodically and report your final result when complete.
+"""
 
         return prompt
 
-    def _spawn_background_agent(self, agent_id: str, prompt: str) -> subprocess.Popen:                                                                
-     """Spawn agent in background using main.py CLI entrypoint."""                                                                                 
-     # Save prompt to file for debugging                                                                                                           
-     prompt_file = self.config.base_dir / f".agent_prompt_{agent_id}.txt"                                                                          
-     prompt_file.write_text(prompt, encoding="utf-8")                                                                                              
-                                                                                                                                                   
-     # CORRECT CLI command for grok-cli
-     cmd = [
-         sys.executable, "main.py",
-         "--agent",           # Autonomous agent mode
-         "--max-steps", "20", # Safety limit
-         prompt               # Agent task prompt
-     ]                                                                                                                                             
-                                                                                                                                                   
-     process = subprocess.Popen(                                                                                                                   
-         cmd,                                                                                                                                      
-         cwd=str(self.config.base_dir),                                                                                                            
-         stdout=subprocess.PIPE,                                                                                                                   
-         stderr=subprocess.PIPE,                                                                                                                   
-         text=True,                                                                                                                                
-         bufsize=1,                                                                                                                                
-         universal_newlines=True                                                                                                                   
-     )                                                                                                                                             
-                                                                                                                                                   
-     self.logger.info(f"✅ Spawned {agent_id} (PID: {process.pid}) with cmd: python main.py --agent")                                              
-     return process
+    def _spawn_background_agent(self, agent_id: str, prompt: str) -> subprocess.Popen:
+        """Spawn agent in background using main.py CLI entrypoint."""
+        # Save prompt to file for debugging
+        prompt_file = self.config.base_dir / f".agent_prompt_{agent_id}.txt"
+        prompt_file.write_text(prompt, encoding="utf-8")
+
+        # CORRECT CLI command for grok-cli
+        cmd = [
+            sys.executable, "main.py",
+            "--agent",           # Autonomous agent mode
+            "--max-steps", "20", # Safety limit
+            prompt               # Agent task prompt
+        ]
+
+        process = subprocess.Popen(
+            cmd,
+            cwd=str(self.config.base_dir),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+            universal_newlines=True
+        )
+
+        # Register process for cleanup
+        SpawnAgentTool._process_registry.append(process)
+
+        self.logger.info(f"✅ Spawned {agent_id} (PID: {process.pid}) with cmd: python main.py --agent")
+        return process
 
     def _spawn_foreground_agent(self, agent_id: str, prompt: str) -> str:
         """Spawn agent in foreground and wait for result."""
