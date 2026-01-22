@@ -198,7 +198,16 @@ class SpawnCommand(BaseCommand):
         console.print(f"[dim]Started episode {episode_id} for agent spawn[/dim]")
 
         # Add spawn request to session for LLM validation and enhancement
-        spawn_message = f"Do not read source code files or documentation to understand tools. Please validate and enhance this spawn request, then use the spawn_agent tool with background=true to create a {role} agent for this task: {task}"
+        spawn_message = (
+            f"SYSTEM INSTRUCTION: You are a Task Manager. You are FORBIDDEN from executing the task yourself. "
+            f"You MUST delegate this task by EXCLUSIVELY calling the 'spawn_agent' tool. "
+            f"DO NOT use any other tools like create_file, write_file, read_file, or execute commands directly. "
+            f"\n\nRequest details:"
+            f"\n- Role: {role}"
+            f"\n- Task: {task}"
+            f"\n- Parameter background: true"
+            f"\n\nValidate the request, then immediately call the spawn_agent tool with these parameters."
+        )
         session.add_message("user", spawn_message)
 
         try:
@@ -217,18 +226,33 @@ class SpawnCommand(BaseCommand):
 
             # Handle tool calls
             agent_id = None
+            used_spawn_tool = False
             if hasattr(response, "tool_calls") and response.tool_calls:
                 tool_results = handle_tool_calls(response, session.tool_executor, session)
-                console.print("[green]✓ Spawn agent tool executed[/green]")
+                console.print("[green]✓ Tools executed[/green]")
 
                 # Extract agent_id from tool results
                 for tool_name, result in tool_results:
-                    if tool_name == "spawn_agent" and "Agent spawned with ID:" in result:
-                        import re
-                        match = re.search(r'Agent spawned with ID: (\w+)', result)
-                        if match:
-                            agent_id = match.group(1)
-                            break
+                    if tool_name == "spawn_agent":
+                        used_spawn_tool = True
+                        if "SPAWN_AGENT_ID:" in result:
+                            import re
+                            match = re.search(r'SPAWN_AGENT_ID: (\w+)', result)
+                            if match:
+                                agent_id = match.group(1)
+                                break
+                    elif tool_name in ["create_file", "write_file", "read_file", "execute_command"]:
+                        # AI executed the task directly instead of spawning an agent
+                        console.print("[yellow]⚠ The AI executed the task directly instead of spawning an agent.[/yellow]")
+                        console.print("[yellow]Task completed without delegation.[/yellow]")
+                        session.complete_turn("Task completed directly without spawning agent")
+                        return CommandResult(should_continue=True)
+
+            if not used_spawn_tool:
+                console.print("[red]Error: AI did not use the spawn_agent tool as instructed.[/red]")
+                console.print("[yellow]Please try again or execute the task directly.[/yellow]")
+                session.complete_turn("Agent spawn failed: spawn_agent tool not used")
+                return CommandResult(should_continue=True)
 
             if not agent_id:
                 console.print("[red]Failed to extract agent ID from spawn result[/red]")

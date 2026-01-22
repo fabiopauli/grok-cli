@@ -6,3 +6,4 @@ prompt-toolkit
 thefuzz
 python-levenshtein
 tiktoken
+filelock
