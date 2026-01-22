@@ -16,11 +16,13 @@ from .code_execution_tool import create_code_execution_tools
 from .dynamic_tools import create_dynamic_tools, DynamicToolLoader
 from .tool_registry import ToolRegistry
 from .lifecycle_tools import create_lifecycle_tools, TaskCompletionSignal
+from .planning_tool import create_planning_tools
+from .multiagent_tool import create_multiagent_tools
 
 from ..core.config import Config
 
 
-def create_tool_executor(config: Config, memory_manager=None, task_manager=None, context_manager=None) -> ToolExecutor:
+def create_tool_executor(config: Config, memory_manager=None, task_manager=None, context_manager=None, client=None) -> ToolExecutor:
     """
     Create and configure the tool executor with all available tools.
 
@@ -29,6 +31,7 @@ def create_tool_executor(config: Config, memory_manager=None, task_manager=None,
         memory_manager: Memory manager instance (optional)
         task_manager: Task manager instance (optional)
         context_manager: Context manager instance (optional)
+        client: xAI client for planning tools (optional)
 
     Returns:
         Configured ToolExecutor instance
@@ -62,13 +65,15 @@ def create_tool_executor(config: Config, memory_manager=None, task_manager=None,
     memory_tool = MemoryTool(config)
     list_memories_tool = ListMemoriesTool(config)
     remove_memory_tool = RemoveMemoryTool(config)
-    
+
     # Set memory manager if provided
     if memory_manager:
         memory_tool.set_memory_manager(memory_manager)
         list_memories_tool.set_memory_manager(memory_manager)
         remove_memory_tool.set_memory_manager(memory_manager)
-    
+        # Store reference for reflection tool
+        config._memory_manager = memory_manager
+
     executor.register_tool(memory_tool)
     executor.register_tool(list_memories_tool)
     executor.register_tool(remove_memory_tool)
@@ -84,6 +89,14 @@ def create_tool_executor(config: Config, memory_manager=None, task_manager=None,
 
     # Register lifecycle tools (task completion signaling)
     for tool in create_lifecycle_tools(config):
+        executor.register_tool(tool)
+
+    # Register planning and reflection tools
+    for tool in create_planning_tools(config, client):
+        executor.register_tool(tool)
+
+    # Register multi-agent coordination tools
+    for tool in create_multiagent_tools(config):
         executor.register_tool(tool)
 
     # Register dynamic tools if self-mode is enabled

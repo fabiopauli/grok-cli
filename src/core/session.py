@@ -19,6 +19,7 @@ from .config import Config
 from .context_manager import ContextManager, ContextMode
 from .memory_manager import MemoryManager
 from .task_manager import TaskManager
+from .episodic_memory import EpisodicMemoryManager
 
 
 class GrokSession:
@@ -45,12 +46,16 @@ class GrokSession:
         
         # Initialize new turn-based and memory systems
         self.memory_manager = MemoryManager(config)
+        self.episodic_memory = EpisodicMemoryManager(config)
         self.task_manager = TaskManager()
         self.context_manager = ContextManager(config)
 
-        # Set memories in context manager
+        # Set memories in context manager (flat + episodic)
         memories = self.memory_manager.get_memories_for_context()
+        episodes = self.episodic_memory.get_episodes_for_context(limit=3)
         self.context_manager.set_memories(memories)
+        # Store episodes separately for now
+        self._recent_episodes = episodes
 
         # Add initial context
         self._add_initial_context()
@@ -404,6 +409,10 @@ class GrokSession:
     def get_memory_manager(self) -> MemoryManager:
         """Get the memory manager instance."""
         return self.memory_manager
+
+    def get_episodic_memory(self) -> EpisodicMemoryManager:
+        """Get the episodic memory manager instance."""
+        return self.episodic_memory
     
     def handle_directory_memory_prompt(self, new_directory: Path) -> Dict[str, Any]:
         """

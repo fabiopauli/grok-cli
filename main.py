@@ -71,14 +71,14 @@ def initialize_application() -> AppContext:
     command_registry = create_command_registry(config)
     context.set_command_registry(command_registry)
 
-    # Create tool executor
-    tool_executor = create_tool_executor(config)
+    # Create tool executor (pass client for planning tools)
+    tool_executor = create_tool_executor(config, client=context.client)
     context.set_tool_executor(tool_executor)
 
     return context
 
 
-def handle_tool_calls(response, tool_executor, session):
+def handle_tool_calls(response, tool_executor, session, enable_reflection=True):
     """
     Handle tool calls from the AI response.
 
@@ -86,6 +86,7 @@ def handle_tool_calls(response, tool_executor, session):
         response: Response from AI
         tool_executor: Tool executor instance
         session: Current session
+        enable_reflection: Enable reflection on failures (default: True)
 
     Returns:
         List of tool results
@@ -98,6 +99,7 @@ def handle_tool_calls(response, tool_executor, session):
             # Display tool call
             display_tool_call(tool_call.function.name, {})
 
+            tool_success = True
             try:
                 # Execute tool call
                 result = tool_executor.execute_tool_call(
@@ -108,6 +110,11 @@ def handle_tool_calls(response, tool_executor, session):
                         }
                     }
                 )
+
+                # Check if result indicates failure
+                if isinstance(result, str) and (result.startswith("Error") or "failed" in result.lower()):
+                    tool_success = False
+
             except TaskCompletionSignal as signal:
                 # Task completion signal caught - add tool result first
                 session.add_message(
@@ -169,8 +176,21 @@ def handle_tool_calls(response, tool_executor, session):
             session.add_message("tool", result, tool_name=tool_call.function.name)
             tool_results.append(result)
 
-            # Display tool success (brief)
-            console.print(f"[dim]✓ {tool_call.function.name} completed[/dim]")
+            # Display tool success/failure (brief)
+            if tool_success:
+                console.print(f"[dim]✓ {tool_call.function.name} completed[/dim]")
+            else:
+                console.print(f"[yellow]⚠ {tool_call.function.name} completed with warnings/errors[/yellow]")
+
+                # Add reflection on failure if enabled
+                if enable_reflection and session.episodic_memory.current_episode:
+                    session.episodic_memory.add_action_to_current_episode(
+                        action_type="tool_call",
+                        description=f"{tool_call.function.name}: {tool_call.function.arguments[:100]}...",
+                        result=result[:200],
+                        success=False
+                    )
+                    # Trigger reflection via agent (could enhance with explicit reflect tool call)
 
     return tool_results
 
