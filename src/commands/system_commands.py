@@ -110,7 +110,7 @@ class HelpCommand(BaseCommand):
         console = get_console()
         
         help_text = f"""
-**Grok Assistant** - Your AI-powered development companion
+**Grok Assistant** - Your AI-powered development companion with advanced agentic reasoning
 
 **File & Context Commands:**
 • `/add <path>` - Add file/directory to context with fuzzy matching
@@ -125,6 +125,13 @@ class HelpCommand(BaseCommand):
 
 **Memory Management:**
 • `/memory` - Interactive memory management (save/load project knowledge)
+
+**Agentic Reasoning Commands:** ✨ NEW
+• `/plan <goal>` - Create structured plan for complex tasks (ReAct-style)
+• `/improve` - Analyze past episodes and suggest improvements
+• `/spawn <role> <task>` - Spawn specialized agent (planner/coder/reviewer/researcher/tester)
+• `/orchestrate <goal>` - Coordinate multiple agents on very complex tasks
+• `/episodes [N]` - View recent task episodes with plans and outcomes
 
 **Model & Reasoning:**
 • `/reasoner` or `/r` - Toggle between default and reasoning model (grok-4-1 family)
@@ -153,6 +160,14 @@ Grok can read, create, and edit files through natural conversation. Just describ
 Use run_bash (Linux/macOS) or run_powershell (Windows) for system operations.
 Use run_bash_background or run_powershell_background for long-running tasks in the background.
 
+**Agentic Features:**
+• Planning: AI creates step-by-step plans for complex tasks
+• Reflection: Automatic learning from failures
+• Episodes: Full task trajectories stored with outcomes
+• Multi-Agent: Spawn specialized agents for parallel work
+• Orchestration: Coordinate multiple agents automatically
+• See docs/AGENTIC_REASONING.md for detailed guide
+
 **Security Features:**
 • Fuzzy matching is opt-in for security
 • Shell commands require confirmation (unless `/agent` mode is enabled)
@@ -160,6 +175,10 @@ Use run_bash_background or run_powershell_background for long-running tasks in t
 • Agent mode disabled by default for safety
 
 **Tips:**
+• Use `/plan` for complex multi-step tasks (e.g., refactoring)
+• Use `/orchestrate` for very complex projects requiring multiple agents
+• Use `/improve` to learn from past experiences
+• Use `/episodes` to review task history and outcomes
 • Use `/add` to include files in your conversation context
 • Try `/memory` to save important project knowledge and preferences
 • Use `/fuzzy` to enable more flexible file matching

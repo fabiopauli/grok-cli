@@ -286,6 +286,66 @@ class EpisodesCommand(BaseCommand):
         return CommandResult(should_continue=True)
 
 
+class OrchestrateCommand(BaseCommand):
+    """Command to orchestrate multiple agents on a complex task."""
+
+    @property
+    def name(self) -> str:
+        return "/orchestrate"
+
+    @property
+    def description(self) -> str:
+        return "Orchestrate multiple specialized agents to work together on a complex task"
+
+    @property
+    def usage(self) -> str:
+        return "/orchestrate <complex goal> - Decompose task and coordinate multiple agents"
+
+    def execute(self, session, args: str = "") -> CommandResult:
+        """Execute orchestrate command."""
+        console = get_console()
+
+        if not args.strip():
+            console.print("[yellow]Usage: /orchestrate <complex goal>[/yellow]")
+            console.print("[dim]Example: /orchestrate Implement a complete authentication system with OAuth2, 2FA, and session management[/dim]")
+            return CommandResult(should_continue=True)
+
+        goal = args.strip()
+
+        console.print(f"[cyan]🎭 Orchestrating agents for complex task...[/cyan]")
+        console.print(f"[dim]Goal: {goal}[/dim]\n")
+
+        # Start an episode for this orchestration
+        episode_id = session.episodic_memory.start_episode(goal, scope="directory")
+        console.print(f"[dim]Started episode {episode_id} for orchestration[/dim]")
+
+        # Add orchestration request to session
+        orchestrate_message = f"Please use the orchestrate tool to coordinate multiple agents for this complex task: {goal}"
+        session.add_message("user", orchestrate_message)
+
+        try:
+            # Get AI response (should trigger orchestrate tool)
+            from ..ui.console import display_thinking_indicator, display_assistant_response
+            display_thinking_indicator()
+            response = session.get_response()
+
+            # Display response
+            if hasattr(response, "content") and response.content:
+                display_assistant_response(
+                    response.content,
+                    enable_markdown=session.config.enable_markdown_rendering,
+                    code_theme=session.config.markdown_code_theme
+                )
+
+            session.complete_turn("Orchestration completed")
+
+        except Exception as e:
+            console.print(f"[red]Error during orchestration: {e}[/red]")
+            session.complete_turn(f"Orchestration failed: {str(e)}")
+
+        return CommandResult(should_continue=True)
+
+
 def create_agentic_commands(config) -> list[BaseCommand]:
     """
     Create agentic reasoning commands.
@@ -300,5 +360,6 @@ def create_agentic_commands(config) -> list[BaseCommand]:
         PlanCommand(config),
         ImproveCommand(config),
         SpawnCommand(config),
-        EpisodesCommand(config)
+        EpisodesCommand(config),
+        OrchestrateCommand(config)
     ]

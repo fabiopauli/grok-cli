@@ -478,7 +478,7 @@ def main() -> None:
 
     # Parse command-line arguments
     parser = argparse.ArgumentParser(
-        description="Grok CLI - AI assistant powered by xAI",
+        description="Grok CLI - AI assistant powered by xAI with advanced agentic reasoning",
         epilog="Examples:\n"
         "  grok-cli                                       # Interactive mode\n"
         '  grok-cli "create a Python script..."          # One-shot mode\n'
@@ -492,7 +492,15 @@ def main() -> None:
         '  grok-cli --agent -r "autonomous task"         # Agent mode + reasoning\n'
         '  grok-cli --self --agent "create and test"     # Self-evolving + agent mode\n'
         '  grok-cli --agent --max-steps 0 "unlimited"    # Agent + unlimited steps\n'
-        '  grok-cli --window-size 5 "long task"          # Keep 5 recent turns in context',
+        '  grok-cli --window-size 5 "long task"          # Keep 5 recent turns in context\n'
+        '\n'
+        'Agentic Reasoning:\n'
+        '  grok-cli --episodes                            # Show recent task episodes and exit\n'
+        '  grok-cli --episodes 20                         # Show last 20 episodes\n'
+        '  grok-cli --improve                             # Show improvement suggestions and exit\n'
+        '  grok-cli --plan "Refactor auth system"         # Start with structured planning\n'
+        '  grok-cli --orchestrate "Complex project"       # Multi-agent orchestration\n'
+        '  grok-cli --agent --plan "Autonomous planning"  # Agent + planning mode',
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -517,6 +525,24 @@ def main() -> None:
     parser.add_argument(
         "--window-size", type=int, default=None, metavar="N",
         help="Number of recent turns to preserve in sliding window (default: 3)"
+    )
+
+    # Agentic reasoning options
+    parser.add_argument(
+        "--episodes", nargs="?", const=10, type=int, metavar="N",
+        help="Show recent task episodes (default: 10) and exit"
+    )
+    parser.add_argument(
+        "--improve", action="store_true",
+        help="Analyze past episodes and show improvement suggestions, then exit"
+    )
+    parser.add_argument(
+        "--plan", action="store_true",
+        help="Start with planning mode for the given prompt (requires prompt argument)"
+    )
+    parser.add_argument(
+        "--orchestrate", action="store_true",
+        help="Use multi-agent orchestration for the given prompt (requires prompt argument)"
     )
 
     # Context mode options (mutually exclusive)
@@ -559,10 +585,45 @@ def main() -> None:
         if args.smart:
             context.config.initial_context_mode = "smart_truncation"
 
+        # Handle agentic reasoning flags that show info and exit
+        if args.episodes is not None:
+            # Show episodes and exit
+            from src.commands.agentic_commands import EpisodesCommand
+            session = GrokSession(context.client, context.config)
+            cmd = EpisodesCommand(context.config)
+            cmd.execute(session, str(args.episodes))
+            sys.exit(0)
+
+        if args.improve:
+            # Show improvement suggestions and exit
+            from src.commands.agentic_commands import ImproveCommand
+            session = GrokSession(context.client, context.config)
+            cmd = ImproveCommand(context.config)
+            cmd.execute(session, "")
+            sys.exit(0)
+
+        # Handle planning and orchestration flags (require prompt)
+        if args.plan and not args.prompt:
+            console.print("[red]Error: --plan requires a prompt argument[/red]")
+            console.print("[dim]Example: grok-cli --plan \"Refactor the authentication system\"[/dim]")
+            sys.exit(1)
+
+        if args.orchestrate and not args.prompt:
+            console.print("[red]Error: --orchestrate requires a prompt argument[/red]")
+            console.print("[dim]Example: grok-cli --orchestrate \"Build a complete API with tests\"[/dim]")
+            sys.exit(1)
+
         # Check if running in one-shot mode or interactive mode
         if args.prompt:
+            # Modify prompt for planning or orchestration
+            modified_prompt = args.prompt
+            if args.plan:
+                modified_prompt = f"Use the generate_plan tool to create a detailed plan for: {args.prompt}"
+            elif args.orchestrate:
+                modified_prompt = f"Use the orchestrate tool to coordinate multiple agents for: {args.prompt}"
+
             # One-shot mode: execute prompt and exit
-            one_shot_mode(args.prompt, context)
+            one_shot_mode(modified_prompt, context)
         else:
             # Interactive mode: start REPL
             display_startup_banner()

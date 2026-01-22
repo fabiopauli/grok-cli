@@ -8,10 +8,11 @@ Comprehensive guide to the advanced agentic reasoning capabilities in Grok-CLI.
 2. [Foundational Features](#foundational-features)
 3. [Self-Evolving Features](#self-evolving-features)
 4. [Collective Features](#collective-features)
-5. [Commands](#commands)
-6. [Tools](#tools)
-7. [Usage Examples](#usage-examples)
-8. [Architecture](#architecture)
+5. [Orchestration](#orchestration)
+6. [Commands](#commands)
+7. [Tools](#tools)
+8. [Usage Examples](#usage-examples)
+9. [Architecture](#architecture)
 
 ---
 
@@ -363,6 +364,214 @@ The blackboard is stored at: `.grok_blackboard.json`
 
 ---
 
+## Orchestration
+
+### Multi-Agent Orchestrator
+
+The orchestrator is a powerful feature that automatically coordinates multiple specialized agents to work together on very complex tasks.
+
+#### How It Works
+
+1. **Task Decomposition**: The orchestrator analyzes a complex goal and breaks it into sub-tasks
+2. **Role Assignment**: Each sub-task is assigned to the most appropriate agent role
+3. **Dependency Management**: Tasks are ordered based on dependencies
+4. **Parallel Execution**: Multiple agents work simultaneously on independent tasks
+5. **Progress Monitoring**: The orchestrator monitors all agents via the blackboard
+6. **Result Aggregation**: When all tasks complete, results are synthesized
+
+#### Orchestration Flow
+
+```
+Complex Goal
+    ↓
+Decomposition → [Task 1] [Task 2] [Task 3] [Task 4] [Task 5]
+    ↓               ↓        ↓        ↓        ↓        ↓
+Role Assignment → Planner Researcher Coder  Reviewer Tester
+    ↓
+Dependency Graph:
+    Planner (Task 1) ────────┐
+                              ↓
+    Researcher (Task 2) ──→ Coder (Task 3) ──┬→ Reviewer (Task 4)
+                                              └→ Tester (Task 5)
+    ↓
+Parallel Execution:
+    [Planner & Researcher run in parallel]
+    [Wait for both to complete]
+    [Coder runs using their results]
+    [Reviewer & Tester run in parallel on coder's output]
+    ↓
+Result Aggregation → Comprehensive Summary
+```
+
+#### Using the Orchestrator
+
+**Via Command:**
+```bash
+/orchestrate Implement a complete e-commerce checkout flow with payment processing, inventory management, and order tracking
+```
+
+**Via Tool:**
+```python
+{
+  "tool": "orchestrate",
+  "parameters": {
+    "goal": "Build a microservices architecture with API gateway, auth service, and data service",
+    "max_agents": 5,
+    "timeout_seconds": 600
+  }
+}
+```
+
+#### Orchestrator Parameters
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `goal` | string | The complex goal to orchestrate | Required |
+| `max_agents` | integer | Maximum concurrent agents | 3 |
+| `timeout_seconds` | integer | Maximum orchestration time | 300 |
+
+#### Example Orchestration
+
+**Input:**
+```bash
+/orchestrate Implement user authentication with OAuth2, 2FA, session management, and audit logging
+```
+
+**Decomposition:**
+```json
+{
+  "goal": "Implement user authentication...",
+  "sub_tasks": [
+    {
+      "id": 0,
+      "description": "Create detailed implementation plan for authentication system",
+      "role": "planner",
+      "dependencies": []
+    },
+    {
+      "id": 1,
+      "description": "Research OAuth2 best practices and 2FA implementations",
+      "role": "researcher",
+      "dependencies": []
+    },
+    {
+      "id": 2,
+      "description": "Implement OAuth2 authentication flow",
+      "role": "coder",
+      "dependencies": [0, 1]
+    },
+    {
+      "id": 3,
+      "description": "Implement 2FA with TOTP",
+      "role": "coder",
+      "dependencies": [0, 1]
+    },
+    {
+      "id": 4,
+      "description": "Review authentication code for security vulnerabilities",
+      "role": "reviewer",
+      "dependencies": [2, 3]
+    },
+    {
+      "id": 5,
+      "description": "Create comprehensive authentication tests",
+      "role": "tester",
+      "dependencies": [2, 3]
+    }
+  ]
+}
+```
+
+**Execution Timeline:**
+```
+t=0s:   Planner & Researcher start (parallel)
+t=30s:  Both complete
+t=30s:  Coder agents start for OAuth2 and 2FA (parallel)
+t=120s: Both coders complete
+t=120s: Reviewer & Tester start (parallel)
+t=180s: Both complete
+t=180s: Orchestration complete - results aggregated
+```
+
+**Output:**
+```
+Orchestration completed for: Implement user authentication...
+
+Orchestration Summary:
+Goal: Implement user authentication with OAuth2, 2FA, session management...
+Total Tasks: 6
+Completed: 6
+Success Rate: 100.0%
+
+Task Results:
+  ✓ [planner] Create detailed implementation plan
+     Result: Created 8-step implementation plan with security considerations...
+
+  ✓ [researcher] Research OAuth2 best practices
+     Result: Identified 5 critical security patterns and 3 libraries...
+
+  ✓ [coder] Implement OAuth2 authentication flow
+     Result: Implemented OAuth2 with PKCE flow, token refresh, and revocation...
+
+  ✓ [coder] Implement 2FA with TOTP
+     Result: Implemented TOTP 2FA with QR code generation and backup codes...
+
+  ✓ [reviewer] Review authentication code
+     Result: Found and fixed 2 timing attack vulnerabilities...
+
+  ✓ [tester] Create comprehensive tests
+     Result: Created 45 test cases covering all auth flows...
+
+See blackboard messages for detailed agent communications.
+```
+
+#### When to Use Orchestration
+
+Use orchestration for:
+
+- **Very Complex Tasks**: Tasks that would take 20+ steps manually
+- **Multi-Aspect Projects**: Projects requiring diverse expertise (planning, coding, security, testing)
+- **Parallel Work**: Tasks with independent sub-tasks that can run simultaneously
+- **Critical Projects**: Important work that benefits from multiple reviewers
+
+**Don't use orchestration for:**
+- Simple single-file changes
+- Tasks that must be done sequentially
+- Quick fixes or small updates
+- Tasks that are already well-understood
+
+#### Monitoring Orchestration
+
+**Check Blackboard:**
+```bash
+# The orchestrator posts regular updates
+read_blackboard
+
+# Output:
+# [10:30:15] orchestrator (info): Starting orchestration orch_1705320015
+# [10:30:16] orchestrator (info): Assigned task 0 to agent planner_orch_1705320015_0
+# [10:30:16] orchestrator (info): Assigned task 1 to agent researcher_orch_1705320015_1
+# [10:32:45] planner_orch_1705320015_0 (result): Task 0 completed: Created plan
+# [10:33:12] researcher_orch_1705320015_1 (result): Task 1 completed: Research done
+```
+
+**Check Progress:**
+```python
+# Progress is stored in blackboard shared data
+blackboard.get_shared_data("orchestration_orch_1705320015_progress")
+
+# Returns:
+# {
+#   "total": 6,
+#   "completed": 2,
+#   "running": 2,
+#   "pending": 2,
+#   "progress_pct": 33.3
+# }
+```
+
+---
+
 ## Commands
 
 ### Planning Commands
@@ -418,6 +627,29 @@ Spawn a specialized agent with a specific role.
 - `reviewer`: Review code
 - `researcher`: Research and explore
 - `tester`: Write and run tests
+
+---
+
+#### `/orchestrate <complex goal>`
+
+Orchestrate multiple agents to work together on a very complex task.
+
+**Example:**
+```bash
+/orchestrate Build a complete CI/CD pipeline with automated testing, security scanning, and deployment to Kubernetes
+```
+
+**What it does:**
+1. Decomposes the complex goal into sub-tasks
+2. Assigns appropriate agent roles to each sub-task
+3. Manages dependencies between tasks
+4. Spawns agents in the correct order
+5. Monitors progress and aggregates results
+
+**Best for:**
+- Very complex multi-part projects
+- Tasks requiring multiple types of expertise
+- Projects that can benefit from parallel execution
 
 ---
 
@@ -520,6 +752,40 @@ Reflect on an action's outcome and generate critique.
 ---
 
 ### Multi-Agent Tools
+
+#### `orchestrate`
+
+Orchestrate multiple specialized agents to work together on a complex task.
+
+**Parameters:**
+```json
+{
+  "goal": "string (required)",
+  "max_agents": "integer (optional, default: 3)",
+  "timeout_seconds": "integer (optional, default: 300)"
+}
+```
+
+**Example:**
+```json
+{
+  "tool": "orchestrate",
+  "parameters": {
+    "goal": "Implement a real-time analytics dashboard with WebSocket updates, Redis caching, and PostgreSQL persistence",
+    "max_agents": 5,
+    "timeout_seconds": 600
+  }
+}
+```
+
+**Returns:**
+- Task decomposition
+- Role assignments
+- Execution timeline
+- Aggregated results from all agents
+- Progress statistics
+
+---
 
 #### `spawn_agent`
 
@@ -649,45 +915,113 @@ Read messages from the shared blackboard.
 
 ---
 
+### Example 4: Orchestration for Very Complex Projects
+
+```bash
+# Use orchestration for projects requiring multiple specialized agents
+/orchestrate Implement a complete user management system with RBAC, SSO, audit logging, and admin dashboard
+
+# The orchestrator automatically:
+# 1. Decomposes into sub-tasks:
+#    - Plan the system architecture (planner)
+#    - Research RBAC patterns and SSO protocols (researcher)
+#    - Implement authentication and authorization (coder)
+#    - Implement audit logging (coder)
+#    - Build admin dashboard (coder)
+#    - Review security and code quality (reviewer)
+#    - Create comprehensive test suite (tester)
+
+# 2. Determines dependencies:
+#    - Planner & Researcher run first (parallel)
+#    - Coders wait for plan and research
+#    - Multiple coders can work simultaneously on independent features
+#    - Reviewer & Tester run after all coding completes (parallel)
+
+# 3. Executes with coordination:
+#    - Spawns agents in dependency order
+#    - Monitors progress via blackboard
+#    - Handles failures and retries
+#    - Aggregates all results
+
+# 4. Returns comprehensive summary:
+#    - All sub-task results
+#    - Success metrics
+#    - Integration status
+#    - Blackboard communication log
+
+# Monitor progress
+read_blackboard
+
+# View the episode
+/episodes 1
+```
+
+**Benefits of Orchestration:**
+- **Parallel Execution**: Independent tasks run simultaneously
+- **Specialized Expertise**: Each agent focuses on their strengths
+- **Automatic Coordination**: No manual agent management needed
+- **Comprehensive Coverage**: Planning, implementation, review, and testing all included
+- **Failure Handling**: Individual agent failures don't derail the entire orchestration
+
+---
+
 ## Architecture
 
 ### Component Diagram
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                  Grok-CLI Main Loop                     │
-│  ┌────────────────────────────────────────────────┐   │
-│  │         Planning & Reflection Layer            │   │
-│  │  • generate_plan tool                         │   │
-│  │  • reflect tool                               │   │
-│  │  • Automatic reflection on failures           │   │
-│  └────────────────────────────────────────────────┘   │
-│                         ↓                              │
-│  ┌────────────────────────────────────────────────┐   │
-│  │         Episodic Memory Layer                  │   │
-│  │  • Episode tracking                            │   │
-│  │  • Plan storage                                │   │
-│  │  • Action logging                              │   │
-│  │  • Reflection storage                          │   │
-│  │  • Automatic summarization                     │   │
-│  └────────────────────────────────────────────────┘   │
-│                         ↓                              │
-│  ┌────────────────────────────────────────────────┐   │
-│  │         Multi-Agent Coordination Layer         │   │
-│  │  • Agent spawning                              │   │
-│  │  • Blackboard communication                    │   │
-│  │  • Role-based specialization                   │   │
-│  │  • Shared data management                      │   │
-│  └────────────────────────────────────────────────┘   │
-│                         ↓                              │
-│  ┌────────────────────────────────────────────────┐   │
-│  │         Tool Execution Layer                   │   │
-│  │  • File operations                             │   │
-│  │  • Shell commands                              │   │
-│  │  • Code analysis                               │   │
-│  │  • Memory operations                           │   │
-│  └────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                      Grok-CLI Main Loop                         │
+│  ┌───────────────────────────────────────────────────────┐     │
+│  │           Planning & Reflection Layer                 │     │
+│  │  • generate_plan tool                                │     │
+│  │  • reflect tool                                      │     │
+│  │  • Automatic reflection on failures                  │     │
+│  └───────────────────────────────────────────────────────┘     │
+│                           ↓                                     │
+│  ┌───────────────────────────────────────────────────────┐     │
+│  │           Episodic Memory Layer                       │     │
+│  │  • Episode tracking                                   │     │
+│  │  • Plan storage                                       │     │
+│  │  • Action logging                                     │     │
+│  │  • Reflection storage                                 │     │
+│  │  • Automatic summarization                            │     │
+│  └───────────────────────────────────────────────────────┘     │
+│                           ↓                                     │
+│  ┌───────────────────────────────────────────────────────┐     │
+│  │         Orchestration Layer (NEW!)                    │     │
+│  │  • Task decomposition                                 │     │
+│  │  • Role assignment                                    │     │
+│  │  • Dependency management                              │     │
+│  │  • Multi-agent coordination                           │     │
+│  │  • Progress monitoring                                │     │
+│  │  • Result aggregation                                 │     │
+│  └───────────────────────────────────────────────────────┘     │
+│                           ↓                                     │
+│  ┌───────────────────────────────────────────────────────┐     │
+│  │         Multi-Agent Coordination Layer                │     │
+│  │  • Agent spawning (individual)                        │     │
+│  │  • Blackboard communication                           │     │
+│  │  • Role-based specialization                          │     │
+│  │  • Shared data management                             │     │
+│  └───────────────────────────────────────────────────────┘     │
+│                           ↓                                     │
+│  ┌───────────────────────────────────────────────────────┐     │
+│  │         Tool Execution Layer                          │     │
+│  │  • File operations                                    │     │
+│  │  • Shell commands                                     │     │
+│  │  • Code analysis                                      │     │
+│  │  • Memory operations                                  │     │
+│  └───────────────────────────────────────────────────────┘     │
+└─────────────────────────────────────────────────────────────────┘
+
+                    Specialized Agents (Spawned)
+        ┌──────────┬──────────┬──────────┬──────────┬──────────┐
+        │ Planner  │Researcher│  Coder   │ Reviewer │  Tester  │
+        └────┬─────┴────┬─────┴────┬─────┴────┬─────┴────┬─────┘
+             └──────────┴──────────┴──────────┴──────────┘
+                            Blackboard
+                    (Shared Communication)
 ```
 
 ---
