@@ -102,6 +102,9 @@ class ToolRegistry:
         """
         Refresh dynamic tools from loader.
 
+        This method ensures the loader uses this registry as the single
+        source of truth for tool registration.
+
         Args:
             loader: DynamicToolLoader instance
 
@@ -111,11 +114,10 @@ class ToolRegistry:
         # Clear current dynamic tools
         self._dynamic_schemas.clear()
 
-        # Reload from loader
-        tools = loader.load_all_tools()
-        schemas = loader.get_tool_schemas()
+        # Ensure loader uses this registry for registration
+        loader.set_registry(self)
 
-        for tool_inst, schema in zip(tools, schemas):
-            self.register_tool(tool_inst, schema)
+        # Reload from loader - tools will auto-register via the registry
+        tools = loader.load_all_tools()
 
         return len(tools)

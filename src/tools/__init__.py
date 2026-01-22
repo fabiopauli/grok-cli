@@ -106,19 +106,129 @@ def create_tool_executor(config: Config, memory_manager=None, task_manager=None,
 
     # Register dynamic tools if self-mode is enabled
     if getattr(config, 'self_mode', False):
-        dynamic_tools, loader = create_dynamic_tools(config)
+        # Create a ToolRegistry that wraps the executor for unified registration
+        # This ensures DynamicToolLoader registers into the central registry
+        # rather than modifying the executor directly
+        registry = ToolRegistry(config)
+        registry._executor = executor  # Use the same executor we've been building
+
+        # Pass the registry to DynamicToolLoader for centralized registration
+        dynamic_tools, loader = create_dynamic_tools(config, registry=registry)
         for tool in dynamic_tools:
             executor.register_tool(tool)
-        # Store loader reference for /reload-tools command
+
+        # Store loader and registry references for /reload-tools command
         config._dynamic_loader = loader
+        config._tool_registry = registry
 
     return executor
+
+
+def create_tool_registry(config: Config, memory_manager=None, task_manager=None, context_manager=None, client=None) -> ToolRegistry:
+    """
+    Create a unified ToolRegistry with all available tools.
+
+    This is the preferred way to create tools when you want centralized
+    management of both tool schemas (for API) and executors (for runtime).
+    The ToolRegistry maintains a single source of truth for all capabilities.
+
+    Args:
+        config: Configuration object
+        memory_manager: Memory manager instance (optional)
+        task_manager: Task manager instance (optional)
+        context_manager: Context manager instance (optional)
+        client: xAI client for planning tools (optional)
+
+    Returns:
+        Configured ToolRegistry instance
+    """
+    registry = ToolRegistry(config)
+
+    # Get the executor from the registry
+    executor = registry.get_executor()
+
+    # Register all tools with the executor (schema registration is separate)
+    # Note: Static tools get schemas from config.get_tools()
+
+    # Register file tools
+    for tool in create_file_tools(config):
+        if context_manager:
+            tool.set_context_manager(context_manager)
+        registry.register_tool(tool)
+
+    # Register shell tools
+    for tool in create_shell_tools(config):
+        registry.register_tool(tool)
+
+    # Register search tools
+    for tool in create_search_tools(config):
+        registry.register_tool(tool)
+
+    # Register inspector tools
+    for tool in create_inspector_tools(config):
+        registry.register_tool(tool)
+
+    # Register editor tools
+    for tool in create_editor_tools(config):
+        registry.register_tool(tool)
+
+    # Register memory tools
+    memory_tool = MemoryTool(config)
+    list_memories_tool = ListMemoriesTool(config)
+    remove_memory_tool = RemoveMemoryTool(config)
+
+    if memory_manager:
+        memory_tool.set_memory_manager(memory_manager)
+        list_memories_tool.set_memory_manager(memory_manager)
+        remove_memory_tool.set_memory_manager(memory_manager)
+        config._memory_manager = memory_manager
+
+    registry.register_tool(memory_tool)
+    registry.register_tool(list_memories_tool)
+    registry.register_tool(remove_memory_tool)
+
+    # Register task tools
+    if task_manager:
+        for tool in create_task_tools(config, task_manager):
+            registry.register_tool(tool)
+
+    # Register code execution tools
+    for tool in create_code_execution_tools(config):
+        registry.register_tool(tool)
+
+    # Register lifecycle tools
+    for tool in create_lifecycle_tools(config):
+        registry.register_tool(tool)
+
+    # Register planning tools
+    for tool in create_planning_tools(config, client):
+        registry.register_tool(tool)
+
+    # Register multi-agent tools
+    for tool in create_multiagent_tools(config):
+        registry.register_tool(tool)
+
+    # Register orchestrator tools
+    for tool in create_orchestrator_tools(config, client):
+        registry.register_tool(tool)
+
+    # Register dynamic tools with the registry for centralized management
+    if getattr(config, 'self_mode', False):
+        dynamic_tools, loader = create_dynamic_tools(config, registry=registry)
+        for tool in dynamic_tools:
+            registry.register_tool(tool)
+        config._dynamic_loader = loader
+        config._tool_registry = registry
+
+    return registry
 
 
 __all__ = [
     'BaseTool',
     'ToolResult',
     'ToolExecutor',
+    'ToolRegistry',
     'TaskCompletionSignal',
-    'create_tool_executor'
+    'create_tool_executor',
+    'create_tool_registry'
 ]

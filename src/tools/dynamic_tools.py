@@ -190,16 +190,24 @@ class ToolValidator:
 
 
 class DynamicToolLoader:
-    """Loads and manages custom tools from the filesystem."""
+    """
+    Loads and manages custom tools from the filesystem.
 
-    def __init__(self, config: Config):
+    Can optionally register tools into a central ToolRegistry to maintain
+    a single source of truth for available capabilities.
+    """
+
+    def __init__(self, config: Config, registry=None):
         """
         Initialize the dynamic tool loader.
 
         Args:
             config: Configuration object
+            registry: Optional ToolRegistry instance for centralized registration.
+                      If provided, all loaded tools will be registered into it.
         """
         self.config = config
+        self._registry = registry  # Central registry for single source of truth
         self._loaded_tools: Dict[str, BaseTool] = {}
         self._tool_schemas: Dict[str, Dict[str, Any]] = {}
 
@@ -211,6 +219,18 @@ class DynamicToolLoader:
 
         # Ensure directory exists
         self.ensure_tools_directory()
+
+    def set_registry(self, registry) -> None:
+        """
+        Set the central tool registry.
+
+        When a registry is set, newly loaded tools will be registered into it
+        rather than just stored locally.
+
+        Args:
+            registry: ToolRegistry instance
+        """
+        self._registry = registry
 
     def ensure_tools_directory(self) -> Path:
         """Ensure the custom tools directory exists."""
@@ -251,6 +271,9 @@ class DynamicToolLoader:
         """
         Load a single tool from a Python file.
 
+        If a ToolRegistry is set, the tool will be registered into it.
+        Otherwise, it's stored locally in this loader.
+
         Args:
             tool_file: Path to the tool file
 
@@ -287,12 +310,20 @@ class DynamicToolLoader:
         tool = module.create_tool(self.config)
 
         # Load schema if present
+        schema = None
         if hasattr(module, 'get_tool_schema'):
             schema = module.get_tool_schema()
             is_valid, error = ToolValidator.validate_tool_schema(schema)
             if is_valid:
                 self._tool_schemas[tool.get_name()] = schema
+            else:
+                schema = None  # Invalid schema, don't use it
 
+        # Register with central registry if available (single source of truth)
+        if self._registry is not None:
+            self._registry.register_tool(tool, schema)
+
+        # Also store locally for get_tool_schemas() compatibility
         self._loaded_tools[tool.get_name()] = tool
         return tool
 
@@ -303,6 +334,9 @@ class DynamicToolLoader:
     def save_tool(self, name: str, source: str, schema: Dict[str, Any]) -> tuple[bool, str]:
         """
         Save a new custom tool to disk.
+
+        Note: This only saves the file. Call _load_tool_from_file() after
+        to load and register the tool with the central registry.
 
         Args:
             name: Tool name (used for filename)
@@ -431,17 +465,24 @@ class CreateToolTool(BaseTool):
             return ToolResult.fail(f"Error creating tool: {e}")
 
 
-def create_dynamic_tools(config: Config) -> tuple[List[BaseTool], DynamicToolLoader]:
+def create_dynamic_tools(config: Config, registry=None) -> tuple[List[BaseTool], DynamicToolLoader]:
     """
     Create dynamic tool system components.
+
+    Args:
+        config: Configuration object
+        registry: Optional ToolRegistry for centralized tool registration.
+                  If provided, all loaded tools will register into it,
+                  maintaining a single source of truth for available capabilities.
 
     Returns:
         Tuple of (tools_list, loader_instance)
     """
-    loader = DynamicToolLoader(config)
+    loader = DynamicToolLoader(config, registry=registry)
     tools = [CreateToolTool(config, loader)]
 
     # Load any existing custom tools
+    # If registry is set, tools will be registered into it automatically
     custom_tools = loader.load_all_tools()
     tools.extend(custom_tools)
 
