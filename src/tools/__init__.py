@@ -18,6 +18,7 @@ from .tool_registry import ToolRegistry
 from .lifecycle_tools import create_lifecycle_tools, TaskCompletionSignal
 from .planning_tool import create_planning_tools
 from .multiagent_tool import create_multiagent_tools
+from .orchestrator_tool import create_orchestrator_tools
 
 from ..core.config import Config
 
@@ -97,6 +98,10 @@ def create_tool_executor(config: Config, memory_manager=None, task_manager=None,
 
     # Register multi-agent coordination tools
     for tool in create_multiagent_tools(config):
+        executor.register_tool(tool)
+
+    # Register orchestrator tools
+    for tool in create_orchestrator_tools(config, client):
         executor.register_tool(tool)
 
     # Register dynamic tools if self-mode is enabled
