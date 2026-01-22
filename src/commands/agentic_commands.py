@@ -6,27 +6,25 @@ Agentic reasoning commands for Grok Assistant
 Commands for planning, reflection, self-improvement, and multi-agent coordination.
 """
 
+import time
+
 from .base import BaseCommand, CommandResult
+from ..core.tool_utils import handle_tool_calls
 from ..ui.console import get_console
 
 
 class PlanCommand(BaseCommand):
     """Command to trigger explicit planning for a task."""
 
-    @property
-    def name(self) -> str:
+    def get_pattern(self) -> str:
         return "/plan"
 
-    @property
-    def description(self) -> str:
+    def get_description(self) -> str:
         return "Create a structured plan for a complex task using ReAct-style planning"
 
-    @property
-    def usage(self) -> str:
-        return "/plan <goal> - Generate a step-by-step plan for achieving a goal"
-
-    def execute(self, session, args: str = "") -> CommandResult:
+    def execute(self, user_input: str, session) -> CommandResult:
         """Execute plan command."""
+        args = self.extract_arguments(user_input)
         console = get_console()
 
         if not args.strip():
@@ -50,7 +48,7 @@ class PlanCommand(BaseCommand):
             display_thinking_indicator()
             response = session.get_response()
 
-            # Display response
+            # Display initial response content if any
             if hasattr(response, "content") and response.content:
                 display_assistant_response(
                     response.content,
@@ -58,13 +56,22 @@ class PlanCommand(BaseCommand):
                     code_theme=session.config.markdown_code_theme
                 )
 
-            # Handle any tool calls (planning)
+            # Handle tool calls
             if hasattr(response, "tool_calls") and response.tool_calls:
-                from ..main import handle_tool_calls
-                from ..core.app_context import AppContext
-                # Get tool executor from global context (or we could pass it)
-                # For now, just inform user
-                console.print("[yellow]Planning tool would be invoked here. Use the generate_plan tool directly for now.[/yellow]")
+                handle_tool_calls(response, session.tool_executor, session)
+                console.print("[green]✓ Planning tools executed[/green]")
+
+                # Get final response after tools
+                display_thinking_indicator()
+                response = session.get_response()
+
+            # Display final response
+            if hasattr(response, "content") and response.content:
+                display_assistant_response(
+                    response.content,
+                    enable_markdown=session.config.enable_markdown_rendering,
+                    code_theme=session.config.markdown_code_theme
+                )
 
             session.complete_turn("Planning completed")
 
@@ -78,20 +85,15 @@ class PlanCommand(BaseCommand):
 class ImproveCommand(BaseCommand):
     """Command to trigger self-improvement loops."""
 
-    @property
-    def name(self) -> str:
+    def get_pattern(self) -> str:
         return "/improve"
 
-    @property
-    def description(self) -> str:
+    def get_description(self) -> str:
         return "Trigger self-improvement by analyzing past episodes and generating optimizations"
 
-    @property
-    def usage(self) -> str:
-        return "/improve - Analyze recent episodes and suggest improvements"
-
-    def execute(self, session, args: str = "") -> CommandResult:
+    def execute(self, user_input: str, session) -> CommandResult:
         """Execute improve command."""
+        args = self.extract_arguments(user_input)
         console = get_console()
 
         console.print("[cyan]🔍 Analyzing recent episodes for improvement opportunities...[/cyan]")
@@ -159,20 +161,15 @@ class ImproveCommand(BaseCommand):
 class SpawnCommand(BaseCommand):
     """Command to spawn specialized agents."""
 
-    @property
-    def name(self) -> str:
+    def get_pattern(self) -> str:
         return "/spawn"
 
-    @property
-    def description(self) -> str:
+    def get_description(self) -> str:
         return "Spawn a specialized agent (planner, coder, reviewer, researcher, tester)"
 
-    @property
-    def usage(self) -> str:
-        return "/spawn <role> <task> - Spawn an agent with a specific role and task"
-
-    def execute(self, session, args: str = "") -> CommandResult:
+    def execute(self, user_input: str, session) -> CommandResult:
         """Execute spawn command."""
+        args = self.extract_arguments(user_input)
         console = get_console()
 
         if not args.strip():
@@ -194,19 +191,23 @@ class SpawnCommand(BaseCommand):
             console.print(f"[dim]Valid roles: {', '.join(valid_roles)}[/dim]")
             return CommandResult(should_continue=True)
 
-        console.print(f"[cyan]🤖 Spawning {role} agent...[/cyan]")
+        console.print(f"[cyan]🤖 Spawning {role} agent for task: {task}[/cyan]")
 
-        # Add spawn request to session
-        spawn_message = f"Please use the spawn_agent tool to create a {role} agent for this task: {task}"
+        # Start an episode for this spawn task
+        episode_id = session.episodic_memory.start_episode(f"Spawn {role} agent for: {task}", scope="directory")
+        console.print(f"[dim]Started episode {episode_id} for agent spawn[/dim]")
+
+        # Add spawn request to session for LLM validation and enhancement
+        spawn_message = f"Do not read source code files or documentation to understand tools. Please validate and enhance this spawn request, then use the spawn_agent tool with background=true to create a {role} agent for this task: {task}"
         session.add_message("user", spawn_message)
 
         try:
-            # Get AI response (should trigger spawn tool)
+            # Get AI response for validation/enhancement
             from ..ui.console import display_thinking_indicator, display_assistant_response
             display_thinking_indicator()
             response = session.get_response()
 
-            # Display response
+            # Display initial response content if any
             if hasattr(response, "content") and response.content:
                 display_assistant_response(
                     response.content,
@@ -214,7 +215,79 @@ class SpawnCommand(BaseCommand):
                     code_theme=session.config.markdown_code_theme
                 )
 
-            session.complete_turn("Agent spawn completed")
+            # Handle tool calls
+            agent_id = None
+            if hasattr(response, "tool_calls") and response.tool_calls:
+                tool_results = handle_tool_calls(response, session.tool_executor, session)
+                console.print("[green]✓ Spawn agent tool executed[/green]")
+
+                # Extract agent_id from tool results
+                for tool_name, result in tool_results:
+                    if tool_name == "spawn_agent" and "Agent spawned with ID:" in result:
+                        import re
+                        match = re.search(r'Agent spawned with ID: (\w+)', result)
+                        if match:
+                            agent_id = match.group(1)
+                            break
+
+            if not agent_id:
+                console.print("[red]Failed to extract agent ID from spawn result[/red]")
+                session.complete_turn("Agent spawn failed: no agent ID")
+                return CommandResult(should_continue=True)
+
+            console.print(f"[dim]Agent {agent_id} spawned in background. Waiting for results...[/dim]")
+
+            # Wait for agent to complete and post results on blackboard
+            from ..tools.multiagent_tool import BlackboardCommunication
+            blackboard_path = session.config.base_dir / ".grok_blackboard.json"
+            blackboard = BlackboardCommunication(blackboard_path)
+
+            # Poll for results (up to 60 seconds with 2s intervals)
+            max_attempts = 30
+            attempt = 0
+            agent_results = []
+
+            while attempt < max_attempts:
+                messages = blackboard.get_messages(since=0, message_type="result")
+                # Filter messages from this agent
+                for msg in messages:
+                    if msg["agent_id"] == agent_id and "result" in msg["content"].lower():
+                        agent_results.append(msg["content"])
+
+                if agent_results:
+                    break
+
+                time.sleep(2)
+                attempt += 1
+
+            if not agent_results:
+                console.print("[yellow]Timeout waiting for agent results. Checking final blackboard state...[/yellow]")
+                # Get latest messages anyway
+                messages = blackboard.get_messages(since=0, message_type="result")
+                agent_results = [msg["content"] for msg in messages if msg["agent_id"] == agent_id]
+
+            # Send results back to LLM for final processing
+            if agent_results:
+                results_text = "\n".join(agent_results)
+                final_message = f"The {role} agent completed its task. Here are the results:\n\n{results_text}\n\nPlease provide a final summary and any additional insights."
+                session.add_message("user", final_message)
+
+                # Get final AI response
+                display_thinking_indicator()
+                final_response = session.get_response()
+
+                if hasattr(final_response, "content") and final_response.content:
+                    display_assistant_response(
+                        final_response.content,
+                        enable_markdown=session.config.enable_markdown_rendering,
+                        code_theme=session.config.markdown_code_theme
+                    )
+                else:
+                    console.print("[dim]No final response from LLM[/dim]")
+            else:
+                console.print("[red]No results received from agent[/red]")
+
+            session.complete_turn("Agent spawn and processing completed")
 
         except Exception as e:
             console.print(f"[red]Error spawning agent: {e}[/red]")
@@ -226,20 +299,15 @@ class SpawnCommand(BaseCommand):
 class EpisodesCommand(BaseCommand):
     """Command to view episodic memory."""
 
-    @property
-    def name(self) -> str:
+    def get_pattern(self) -> str:
         return "/episodes"
 
-    @property
-    def description(self) -> str:
+    def get_description(self) -> str:
         return "View recent episodes from episodic memory"
 
-    @property
-    def usage(self) -> str:
-        return "/episodes [limit] - Show recent episodes (default: 10)"
-
-    def execute(self, session, args: str = "") -> CommandResult:
+    def execute(self, user_input: str, session) -> CommandResult:
         """Execute episodes command."""
+        args = self.extract_arguments(user_input)
         console = get_console()
 
         # Parse limit
@@ -286,23 +354,85 @@ class EpisodesCommand(BaseCommand):
         return CommandResult(should_continue=True)
 
 
+class BlackboardCommand(BaseCommand):
+    """Command to read messages from the shared agent blackboard."""
+
+    def get_pattern(self) -> str:
+        return "/blackboard"
+
+    def get_description(self) -> str:
+        return "Read messages from the shared agent blackboard"
+
+    def execute(self, user_input: str, session) -> CommandResult:
+        """Execute blackboard command."""
+        args = self.extract_arguments(user_input)
+        console = get_console()
+
+        # Parse arguments
+        message_type = None
+        new_only = True
+
+        if args.strip():
+            parts = args.strip().split()
+            if parts:
+                if parts[0] in ["info", "request", "result", "error"]:
+                    message_type = parts[0]
+                    if len(parts) > 1 and parts[1].lower() == "all":
+                        new_only = False
+                elif parts[0].lower() == "all":
+                    new_only = False
+
+        # Use the read_blackboard tool logic directly
+        from ..tools.multiagent_tool import BlackboardCommunication
+        blackboard_path = session.config.base_dir / ".grok_blackboard.json"
+        blackboard = BlackboardCommunication(blackboard_path)
+
+        # Get last read time from session or tool instance
+        last_read_time = getattr(session, '_blackboard_last_read', 0)
+
+        since = last_read_time if new_only else None
+        messages = blackboard.get_messages(since=since, message_type=message_type)
+
+        # Update last read time
+        session._blackboard_last_read = time.time()
+
+        if not messages:
+            console.print("[dim]No messages on the blackboard.[/dim]")
+            return CommandResult(should_continue=True)
+
+        console.print(f"\n[bold cyan]Blackboard Messages ({len(messages)} total):[/bold cyan]\n")
+
+        for msg in messages:
+            timestamp = time.strftime("%H:%M:%S", time.localtime(msg["timestamp"]))
+            agent_id = msg["agent_id"]
+            msg_type = msg["type"]
+            content = msg["content"]
+
+            # Color code by type
+            type_color = {
+                "info": "blue",
+                "request": "yellow",
+                "result": "green",
+                "error": "red"
+            }.get(msg_type, "white")
+
+            console.print(f"[{type_color}]{timestamp}[/{type_color}] [bold]{agent_id}[/bold] ({msg_type}): {content}")
+
+        return CommandResult(should_continue=True)
+
+
 class OrchestrateCommand(BaseCommand):
     """Command to orchestrate multiple agents on a complex task."""
 
-    @property
-    def name(self) -> str:
+    def get_pattern(self) -> str:
         return "/orchestrate"
 
-    @property
-    def description(self) -> str:
+    def get_description(self) -> str:
         return "Orchestrate multiple specialized agents to work together on a complex task"
 
-    @property
-    def usage(self) -> str:
-        return "/orchestrate <complex goal> - Decompose task and coordinate multiple agents"
-
-    def execute(self, session, args: str = "") -> CommandResult:
+    def execute(self, user_input: str, session) -> CommandResult:
         """Execute orchestrate command."""
+        args = self.extract_arguments(user_input)
         console = get_console()
 
         if not args.strip():
@@ -360,6 +490,7 @@ def create_agentic_commands(config) -> list[BaseCommand]:
         PlanCommand(config),
         ImproveCommand(config),
         SpawnCommand(config),
+        BlackboardCommand(config),
         EpisodesCommand(config),
         OrchestrateCommand(config)
     ]

@@ -39,8 +39,8 @@ class GeneratePlanTool(BaseTool):
         """Set the xAI client for internal calls."""
         self.client = client
 
-    @property
-    def name(self) -> str:
+    def get_name(self) -> str:
+        """Get the tool name."""
         return "generate_plan"
 
     @property
@@ -86,7 +86,7 @@ class GeneratePlanTool(BaseTool):
         max_steps = kwargs.get("max_steps", 10)
 
         if not goal:
-            return self.error("Goal is required for planning")
+            return ToolResult.fail("Goal is required for planning")
 
         # Create planning prompt
         planning_prompt = self._create_planning_prompt(goal, context, max_steps)
@@ -109,7 +109,7 @@ class GeneratePlanTool(BaseTool):
         # Format plan for output
         plan_text = self._format_plan(plan)
 
-        return self.success(
+        return ToolResult.ok(
             f"Generated plan for: {goal}\n\n{plan_text}\n\n"
             "The plan has been stored and will guide subsequent actions."
         )
@@ -254,8 +254,8 @@ class ReflectTool(BaseTool):
         """Set the xAI client for internal calls."""
         self.client = client
 
-    @property
-    def name(self) -> str:
+    def get_name(self) -> str:
+        """Get the tool name."""
         return "reflect"
 
     @property
@@ -306,7 +306,7 @@ class ReflectTool(BaseTool):
         error = kwargs.get("error", "")
 
         if not action or not outcome:
-            return self.error("Both 'action' and 'outcome' are required for reflection")
+            return ToolResult.fail("Both 'action' and 'outcome' are required for reflection")
 
         # Create reflection prompt
         reflection_prompt = self._create_reflection_prompt(action, outcome, expected, error)
@@ -324,7 +324,7 @@ class ReflectTool(BaseTool):
         # Store reflection in memory
         self._store_reflection(action, outcome, reflection)
 
-        return self.success(
+        return ToolResult.ok(
             f"Reflection on '{action}':\n\n{reflection}\n\n"
             "This reflection has been stored in memory for future reference."
         )

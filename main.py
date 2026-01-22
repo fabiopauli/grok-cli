@@ -23,6 +23,7 @@ from src.commands import create_command_registry
 from src.core.app_context import AppContext
 from src.core.config import Config
 from src.core.session import GrokSession
+from src.core.tool_utils import handle_tool_calls, handle_task_completion_interaction
 from src.tools import create_tool_executor, TaskCompletionSignal
 from src.ui import (
     display_error,
@@ -195,56 +196,7 @@ def handle_tool_calls(response, tool_executor, session, enable_reflection=True):
     return tool_results
 
 
-def handle_task_completion_interaction(session, summary: str, next_steps: str = "") -> bool:
-    """
-    Handle task completion interaction with user.
 
-    Args:
-        session: Current GrokSession
-        summary: Task completion summary
-        next_steps: Optional next steps suggestion
-
-    Returns:
-        True if context was modified, False otherwise
-    """
-    console = get_console()
-    prompt_session = get_prompt_session()
-
-    # Check if context usage exceeds threshold (user requirement: 128k)
-    context_stats = session.get_context_info()
-    estimated_tokens = context_stats.get('estimated_tokens', 0)
-    threshold = session.config.task_completion_token_threshold
-
-    if estimated_tokens < threshold:
-        # Below threshold - just acknowledge completion
-        console.print(f"\n[green]✓ Task completed:[/green] {summary}")
-        if next_steps:
-            console.print(f"[dim]Suggested next steps: {next_steps}[/dim]\n")
-        return False
-
-    # Above threshold - offer context management
-    console.print(f"\n[bold green]✓ Task Completed[/bold green]")
-    console.print(f"[dim]{summary}[/dim]")
-    if next_steps:
-        console.print(f"[dim]Next steps: {next_steps}[/dim]")
-
-    console.print(f"\n[yellow]Context usage: {estimated_tokens:,} tokens (threshold: {threshold:,})[/yellow]")
-    console.print("Would you like to clear context to free up memory? (Y/n): ", end="")
-
-    try:
-        choice = prompt_session.prompt("").strip().lower()
-    except (KeyboardInterrupt, EOFError):
-        console.print("\n[dim]Keeping context.[/dim]")
-        return False
-
-    if choice in ['y', 'yes', '']:  # Default to yes per user requirement
-        # Clear context but keep system prompt and memories
-        session.clear_context(keep_system_prompt=True)
-        console.print("[green]✓ Context cleared. Memories and system prompt preserved.[/green]\n")
-        return True
-    else:
-        console.print("[dim]Context preserved.[/dim]\n")
-        return False
 
 
 def main_loop(context: AppContext) -> None:
@@ -258,7 +210,7 @@ def main_loop(context: AppContext) -> None:
     prompt_session = get_prompt_session()
 
     # Initialize session
-    session = GrokSession(context.client, context.config)
+    session = GrokSession(context.client, context.config, context.tool_executor)
 
     # Register task tools now that we have a session with task_manager
     from src.tools.task_tools import create_task_tools
@@ -418,7 +370,7 @@ def one_shot_mode(prompt: str, context: AppContext) -> None:
 
     try:
         # Initialize session
-        session = GrokSession(context.client, context.config)
+        session = GrokSession(context.client, context.config, context.tool_executor)
 
         # Register task tools now that we have a session with task_manager
         from src.tools.task_tools import create_task_tools
@@ -590,6 +542,7 @@ def main() -> None:
             # Show episodes and exit
             from src.commands.agentic_commands import EpisodesCommand
             session = GrokSession(context.client, context.config)
+            session.tool_executor = context.tool_executor
             cmd = EpisodesCommand(context.config)
             cmd.execute(session, str(args.episodes))
             sys.exit(0)
@@ -598,6 +551,7 @@ def main() -> None:
             # Show improvement suggestions and exit
             from src.commands.agentic_commands import ImproveCommand
             session = GrokSession(context.client, context.config)
+            session.tool_executor = context.tool_executor
             cmd = ImproveCommand(context.config)
             cmd.execute(session, "")
             sys.exit(0)

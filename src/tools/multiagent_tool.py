@@ -9,6 +9,7 @@ via blackboard pattern.
 
 import json
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -164,8 +165,8 @@ class SpawnAgentTool(BaseTool):
         self.blackboard_path = config.base_dir / ".grok_blackboard.json"
         self.blackboard = BlackboardCommunication(self.blackboard_path)
 
-    @property
-    def name(self) -> str:
+    def get_name(self) -> str:
+        """Get the tool name."""
         return "spawn_agent"
 
     @property
@@ -244,12 +245,7 @@ class SpawnAgentTool(BaseTool):
                     "info"
                 )
 
-                return self.success(
-                    f"Spawned {role} agent {agent_id} in background.\n"
-                    f"Task: {task}\n\n"
-                    f"Use read_blackboard tool to monitor agent progress.\n"
-                    f"Agent will communicate results via the shared blackboard."
-                )
+                return self.success(f"SPAWN_AGENT_ID: {agent_id}")
             else:
                 # Run synchronously
                 result = self._spawn_foreground_agent(agent_id, agent_prompt)
@@ -287,36 +283,79 @@ Begin your task now."""
 
         return prompt
 
-    def _spawn_background_agent(self, agent_id: str, prompt: str) -> subprocess.Popen:
-        """Spawn agent in background."""
-        # Create temporary file for prompt
-        prompt_file = self.config.base_dir / f".agent_prompt_{agent_id}.txt"
-        prompt_file.write_text(prompt, encoding="utf-8")
-
-        # Spawn grok-cli subprocess
-        cmd = [
-            "python", "-m", "grok_cli",
-            "--agent",  # Enable autonomous mode
-            "--max-steps", "20",  # Limit steps to prevent runaway
-            prompt
-        ]
-
-        process = subprocess.Popen(
-            cmd,
-            cwd=str(self.config.base_dir),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
-
-        self.logger.info(f"Spawned background agent {agent_id} (PID: {process.pid})")
-        return process
+    def _spawn_background_agent(self, agent_id: str, prompt: str) -> subprocess.Popen:                                                                
+     """Spawn agent in background using main.py CLI entrypoint."""                                                                                 
+     # Save prompt to file for debugging                                                                                                           
+     prompt_file = self.config.base_dir / f".agent_prompt_{agent_id}.txt"                                                                          
+     prompt_file.write_text(prompt, encoding="utf-8")                                                                                              
+                                                                                                                                                   
+     # CORRECT CLI command for grok-cli
+     cmd = [
+         sys.executable, "main.py",
+         "--agent",           # Autonomous agent mode
+         "--max-steps", "20", # Safety limit
+         prompt               # Agent task prompt
+     ]                                                                                                                                             
+                                                                                                                                                   
+     process = subprocess.Popen(                                                                                                                   
+         cmd,                                                                                                                                      
+         cwd=str(self.config.base_dir),                                                                                                            
+         stdout=subprocess.PIPE,                                                                                                                   
+         stderr=subprocess.PIPE,                                                                                                                   
+         text=True,                                                                                                                                
+         bufsize=1,                                                                                                                                
+         universal_newlines=True                                                                                                                   
+     )                                                                                                                                             
+                                                                                                                                                   
+     self.logger.info(f"✅ Spawned {agent_id} (PID: {process.pid}) with cmd: python main.py --agent")                                              
+     return process
 
     def _spawn_foreground_agent(self, agent_id: str, prompt: str) -> str:
         """Spawn agent in foreground and wait for result."""
-        # For foreground, we would integrate with the main session
-        # For now, return a placeholder
-        return f"Foreground agent execution not yet implemented. Use background=true."
+        # Save prompt to file for debugging
+        prompt_file = self.config.base_dir / f".agent_prompt_{agent_id}.txt"
+        prompt_file.write_text(prompt, encoding="utf-8")
+
+        # Command for grok-cli
+        cmd = [
+            sys.executable, "main.py",
+            "--agent",           # Autonomous agent mode
+            "--max-steps", "20", # Safety limit
+            prompt               # Agent task prompt
+        ]
+
+        # Run synchronously and wait for completion
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=str(self.config.base_dir),
+                capture_output=True,
+                text=True,
+                timeout=300  # 5 minute timeout
+            )
+
+            # After completion, check blackboard for results
+            messages = self.blackboard.get_messages(message_type="result")
+            agent_results = [m for m in messages if m["agent_id"] == agent_id]
+
+            if agent_results:
+                # Return the latest result from this agent
+                latest_result = max(agent_results, key=lambda m: m["timestamp"])
+                return latest_result["content"]
+            else:
+                # Return stdout if no blackboard result
+                output = result.stdout.strip()
+                if output:
+                    return output
+                elif result.stderr:
+                    return f"Agent completed with errors:\n{result.stderr}"
+                else:
+                    return "Agent completed but no result found on blackboard."
+
+        except subprocess.TimeoutExpired:
+            return "Agent execution timed out after 5 minutes."
+        except Exception as e:
+            return f"Error running foreground agent: {str(e)}"
 
 
 class ReadBlackboardTool(BaseTool):
@@ -329,8 +368,8 @@ class ReadBlackboardTool(BaseTool):
         self.blackboard = BlackboardCommunication(self.blackboard_path)
         self.last_read_time = 0
 
-    @property
-    def name(self) -> str:
+    def get_name(self) -> str:
+        """Get the tool name."""
         return "read_blackboard"
 
     @property
@@ -391,8 +430,8 @@ class WriteBlackboardTool(BaseTool):
         self.blackboard_path = config.base_dir / ".grok_blackboard.json"
         self.blackboard = BlackboardCommunication(self.blackboard_path)
 
-    @property
-    def name(self) -> str:
+    def get_name(self) -> str:
+        """Get the tool name."""
         return "write_to_blackboard"
 
     @property

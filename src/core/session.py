@@ -30,16 +30,18 @@ class GrokSession:
     Provides dual-mode operation and directory-aware memory storage.
     """
     
-    def __init__(self, client: Client, config: Config):
+    def __init__(self, client: Client, config: Config, tool_executor=None):
         """
         Initialize a new Grok session.
-        
+
         Args:
             client: xAI client instance
             config: Configuration object (dependency injection)
+            tool_executor: Tool executor instance (optional)
         """
         self.client = client
         self.config = config
+        self.tool_executor = tool_executor
         self.model = config.current_model
         self.is_reasoner = config.is_reasoner
         self._use_reasoner_next = False

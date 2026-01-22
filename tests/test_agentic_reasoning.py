@@ -195,7 +195,7 @@ class TestPlanningTool:
 
         tool = GeneratePlanTool(config)
 
-        assert tool.name == "generate_plan"
+        assert tool.get_name() == "generate_plan"
         assert "plan" in tool.description.lower()
 
         # Test without client (should use simple plan)
@@ -231,7 +231,7 @@ class TestReflectionTool:
 
         tool = ReflectTool(config)
 
-        assert tool.name == "reflect"
+        assert tool.get_name() == "reflect"
         assert "reflect" in tool.description.lower()
 
         # Test reflection on failure
@@ -336,32 +336,32 @@ class TestAgenticCommands:
         config = Config()
         command = PlanCommand(config)
 
-        assert command.name == "/plan"
-        assert "plan" in command.description.lower()
+        assert command.get_pattern() == "/plan"
+        assert "plan" in command.get_description().lower()
 
     def test_improve_command_creation(self):
         """Test improve command creation."""
         config = Config()
         command = ImproveCommand(config)
 
-        assert command.name == "/improve"
-        assert "improve" in command.description.lower()
+        assert command.get_pattern() == "/improve"
+        assert "improve" in command.get_description().lower()
 
     def test_spawn_command_creation(self):
         """Test spawn command creation."""
         config = Config()
         command = SpawnCommand(config)
 
-        assert command.name == "/spawn"
-        assert "spawn" in command.description.lower()
+        assert command.get_pattern() == "/spawn"
+        assert "spawn" in command.get_description().lower()
 
     def test_episodes_command_creation(self):
         """Test episodes command creation."""
         config = Config()
         command = EpisodesCommand(config)
 
-        assert command.name == "/episodes"
-        assert "episode" in command.description.lower()
+        assert command.get_pattern() == "/episodes"
+        assert "episode" in command.get_description().lower()
 
 
 if __name__ == "__main__":

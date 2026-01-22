@@ -27,6 +27,10 @@ class ReadFileTool(BaseTool):
         try:
             norm_path = normalize_path(args["file_path"], self.config)
 
+            # Prevent reading internal tool implementation files
+            if 'src/tools/' in norm_path:
+                return ToolResult.fail("Error: Cannot read internal tool implementation files. Use the tool interface instead.")
+
             # Check if file is already in context (mounted or recently read)
             if self.context_manager and self.context_manager.is_file_in_context(norm_path):
                 relative_path = Path(norm_path).name if self.config.use_relative_paths else norm_path

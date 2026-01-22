@@ -13,7 +13,7 @@ from .context_commands import (
     CoderCommand, Grok4Command, Grok4ReasonerCommand, MaxContextCommand
 )
 from .memory_commands import MemoryCommand
-from .agentic_commands import PlanCommand, ImproveCommand, SpawnCommand, EpisodesCommand, OrchestrateCommand
+from .agentic_commands import PlanCommand, ImproveCommand, SpawnCommand, BlackboardCommand, EpisodesCommand, OrchestrateCommand
 
 from ..core.config import Config
 
@@ -68,6 +68,7 @@ def create_command_registry(config: Config) -> CommandRegistry:
     registry.register(PlanCommand(config))
     registry.register(ImproveCommand(config))
     registry.register(SpawnCommand(config))
+    registry.register(BlackboardCommand(config))
     registry.register(EpisodesCommand(config))
     registry.register(OrchestrateCommand(config))
 

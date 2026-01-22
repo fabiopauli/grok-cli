@@ -146,8 +146,8 @@ class OrchestratorTool(BaseTool):
         """Set the xAI client."""
         self.client = client
 
-    @property
-    def name(self) -> str:
+    def get_name(self) -> str:
+        """Get the tool name."""
         return "orchestrate"
 
     @property
