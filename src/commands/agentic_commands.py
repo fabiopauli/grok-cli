@@ -198,16 +198,15 @@ class SpawnCommand(BaseCommand):
         episode_id = session.episodic_memory.start_episode(f"Spawn {role} agent for: {task}", scope="directory")
         console.print(f"[dim]Started episode {episode_id} for agent spawn[/dim]")
 
-        # Add spawn request to session for LLM validation and enhancement
+        # Add spawn request to session - MUST use spawn_agent tool
         spawn_message = (
-            f"SYSTEM INSTRUCTION: You are a Task Manager. You are FORBIDDEN from executing the task yourself. "
-            f"You MUST delegate this task by EXCLUSIVELY calling the 'spawn_agent' tool. "
-            f"DO NOT use any other tools like create_file, write_file, read_file, or execute commands directly. "
-            f"\n\nRequest details:"
-            f"\n- Role: {role}"
-            f"\n- Task: {task}"
-            f"\n- Parameter background: true"
-            f"\n\nValidate the request, then immediately call the spawn_agent tool with these parameters."
+            f"CRITICAL: You MUST call the spawn_agent tool NOW. Do NOT execute the task yourself.\n\n"
+            f"Call spawn_agent with these exact parameters:\n"
+            f"- role: \"{role}\"\n"
+            f"- task: \"{task}\"\n"
+            f"- background: true\n\n"
+            f"Do NOT provide the task results directly. Do NOT use read_file, write_file, or any other tools.\n"
+            f"ONLY call spawn_agent and nothing else."
         )
         session.add_message("user", spawn_message)
 
@@ -228,12 +227,16 @@ class SpawnCommand(BaseCommand):
             # Handle tool calls
             agent_id = None
             used_spawn_tool = False
+            tools_used = []
+
             if hasattr(response, "tool_calls") and response.tool_calls:
                 tool_results = handle_tool_calls(response, session.tool_executor, session)
                 console.print("[green]✓ Tools executed[/green]")
 
                 # Extract agent_id from tool results
                 for tool_name, result in tool_results:
+                    tools_used.append(tool_name)
+
                     if tool_name == "spawn_agent":
                         used_spawn_tool = True
                         if "SPAWN_AGENT_ID:" in result:
@@ -242,6 +245,9 @@ class SpawnCommand(BaseCommand):
                             if match:
                                 agent_id = match.group(1)
                                 break
+                        else:
+                            # Tool was called but failed
+                            console.print(f"[yellow]⚠ spawn_agent tool failed: {result[:200]}[/yellow]")
                     elif tool_name in ["create_file", "write_file", "read_file", "execute_command"]:
                         # AI executed the task directly instead of spawning an agent
                         console.print("[yellow]⚠ The AI executed the task directly instead of spawning an agent.[/yellow]")
@@ -251,6 +257,10 @@ class SpawnCommand(BaseCommand):
 
             if not used_spawn_tool:
                 console.print("[red]Error: AI did not use the spawn_agent tool as instructed.[/red]")
+                if tools_used:
+                    console.print(f"[yellow]Tools used instead: {', '.join(tools_used)}[/yellow]")
+                else:
+                    console.print("[yellow]AI responded with text instead of calling a tool.[/yellow]")
                 console.print("[yellow]Please try again or execute the task directly.[/yellow]")
                 session.complete_turn("Agent spawn failed: spawn_agent tool not used")
                 return CommandResult(should_continue=True)
