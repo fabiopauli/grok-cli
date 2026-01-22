@@ -11,6 +11,7 @@ import time
 from .base import BaseCommand, CommandResult
 from ..core.tool_utils import handle_tool_calls
 from ..ui.console import get_console
+from ..utils.async_utils import InterruptiblePoller
 
 
 class PlanCommand(BaseCommand):
@@ -260,29 +261,39 @@ class SpawnCommand(BaseCommand):
                 return CommandResult(should_continue=True)
 
             console.print(f"[dim]Agent {agent_id} spawned in background. Waiting for results...[/dim]")
+            console.print(f"[dim]Press Ctrl+C to cancel waiting[/dim]")
 
             # Wait for agent to complete and post results on blackboard
             from ..tools.multiagent_tool import BlackboardCommunication
             blackboard_path = session.config.base_dir / ".grok_blackboard.json"
             blackboard = BlackboardCommunication(blackboard_path)
 
-            # Poll for results (up to 60 seconds with 2s intervals)
-            max_attempts = 30
-            attempt = 0
+            # Poll for results using interruptible poller (up to 60 seconds)
+            # Uses 2s poll intervals with 0.1s interrupt checks for responsive cancellation
             agent_results = []
+            was_cancelled = False
 
-            while attempt < max_attempts:
-                messages = blackboard.get_messages(since=0, message_type="result")
-                # Filter messages from this agent
-                for msg in messages:
-                    if msg["agent_id"] == agent_id and "result" in msg["content"].lower():
-                        agent_results.append(msg["content"])
+            try:
+                with InterruptiblePoller(timeout=60, poll_interval=2.0, check_interval=0.1) as poller:
+                    while not poller.should_stop():
+                        messages = blackboard.get_messages(since=0, message_type="result")
+                        # Filter messages from this agent
+                        for msg in messages:
+                            if msg["agent_id"] == agent_id and "result" in msg["content"].lower():
+                                agent_results.append(msg["content"])
 
-                if agent_results:
-                    break
+                        if agent_results:
+                            break
 
-                time.sleep(2)
-                attempt += 1
+                        poller.wait()
+
+            except KeyboardInterrupt:
+                was_cancelled = True
+                console.print("\n[yellow]Cancelled waiting for agent results[/yellow]")
+
+            if was_cancelled:
+                session.complete_turn("Agent spawn cancelled by user")
+                return CommandResult(should_continue=True)
 
             if not agent_results:
                 console.print("[yellow]Timeout waiting for agent results. Checking final blackboard state...[/yellow]")

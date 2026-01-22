@@ -27,6 +27,10 @@ from .shell_utils import (
     validate_working_directory
 )
 
+from .async_utils import (
+    interruptible_sleep, InterruptiblePoller, InterruptedError
+)
+
 __all__ = [
     # Path utilities
     'normalize_path', 'get_directory_tree_summary', 'is_path_safe',
@@ -45,5 +49,8 @@ __all__ = [
     # Shell utilities
     'detect_available_shells', 'run_bash_command', 'run_powershell_command',
     'get_shell_for_os', 'is_dangerous_command', 'sanitize_command',
-    'validate_working_directory'
+    'validate_working_directory',
+
+    # Async utilities
+    'interruptible_sleep', 'InterruptiblePoller', 'InterruptedError'
 ]

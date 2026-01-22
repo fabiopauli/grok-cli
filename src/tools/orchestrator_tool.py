@@ -15,6 +15,7 @@ from .base import BaseTool, ToolResult
 from .multiagent_tool import BlackboardCommunication, AgentRole
 from ..core.config import Config
 from ..utils.logging_config import get_logger
+from ..utils.async_utils import interruptible_sleep
 
 
 class TaskDecomposition:
@@ -359,6 +360,9 @@ Return only the JSON array."""
         """
         Execute the orchestration by spawning agents.
 
+        Uses interruptible sleep to ensure the user can cancel a runaway
+        orchestration immediately with Ctrl+C.
+
         Args:
             decomposition: Task decomposition
             orchestration_id: Orchestration ID
@@ -368,12 +372,18 @@ Return only the JSON array."""
 
         Returns:
             Dictionary mapping task_id to result
+
+        Raises:
+            KeyboardInterrupt: If user cancels the orchestration
+            TimeoutError: If orchestration exceeds timeout
+            RuntimeError: If token budget is exceeded
         """
         results = {}
         start_time = time.time()
         running_agents = {}  # agent_id -> task_id
         tokens_used = 0  # Track estimated token usage
         max_retries_per_task = 3  # Prevent infinite retry loops
+        cancelled = False
 
         # Post orchestration start to blackboard
         self.blackboard.post_message(
@@ -382,62 +392,78 @@ Return only the JSON array."""
             "info"
         )
 
-        while not decomposition.is_complete():
-            # Check timeout
-            if time.time() - start_time > timeout_seconds:
-                raise TimeoutError(f"Orchestration timed out after {timeout_seconds}s")
+        try:
+            while not decomposition.is_complete():
+                # Check timeout
+                elapsed = time.time() - start_time
+                if elapsed > timeout_seconds:
+                    raise TimeoutError(f"Orchestration timed out after {timeout_seconds}s")
 
-            # Check token budget
-            if tokens_used > max_tokens:
-                self.logger.warning(f"Token budget exceeded: {tokens_used}/{max_tokens}")
-                raise RuntimeError(
-                    f"Orchestration aborted: exceeded token budget of {max_tokens} tokens. "
-                    f"Used approximately {tokens_used} tokens."
-                )
+                # Check token budget
+                if tokens_used > max_tokens:
+                    self.logger.warning(f"Token budget exceeded: {tokens_used}/{max_tokens}")
+                    raise RuntimeError(
+                        f"Orchestration aborted: exceeded token budget of {max_tokens} tokens. "
+                        f"Used approximately {tokens_used} tokens."
+                    )
 
-            # Get ready tasks
-            ready_tasks = decomposition.get_ready_tasks()
+                # Get ready tasks
+                ready_tasks = decomposition.get_ready_tasks()
 
-            # Spawn agents for ready tasks (up to max_agents)
-            while ready_tasks and len(running_agents) < max_agents:
-                task = ready_tasks.pop(0)
-                agent_id = self._spawn_agent_for_task(task, orchestration_id)
+                # Spawn agents for ready tasks (up to max_agents)
+                while ready_tasks and len(running_agents) < max_agents:
+                    task = ready_tasks.pop(0)
+                    agent_id = self._spawn_agent_for_task(task, orchestration_id)
 
-                if agent_id:
-                    running_agents[agent_id] = task["id"]
-                    decomposition.mark_task_running(task["id"], agent_id)
+                    if agent_id:
+                        running_agents[agent_id] = task["id"]
+                        decomposition.mark_task_running(task["id"], agent_id)
 
-            # Check agent progress via blackboard
-            messages = self.blackboard.get_messages(message_type="result")
-            for message in messages:
-                agent_id = message["agent_id"]
-                if agent_id in running_agents:
-                    task_id = running_agents[agent_id]
-                    result_content = message["content"]
+                # Check agent progress via blackboard
+                messages = self.blackboard.get_messages(message_type="result")
+                for message in messages:
+                    agent_id = message["agent_id"]
+                    if agent_id in running_agents:
+                        task_id = running_agents[agent_id]
+                        result_content = message["content"]
 
-                    # Estimate token usage (rough approximation: 4 chars per token)
-                    result_tokens = len(result_content) // 4
-                    tokens_used += result_tokens
+                        # Estimate token usage (rough approximation: 4 chars per token)
+                        result_tokens = len(result_content) // 4
+                        tokens_used += result_tokens
 
-                    # Mark task as completed
-                    decomposition.mark_task_completed(task_id, result_content)
-                    results[task_id] = result_content
+                        # Mark task as completed
+                        decomposition.mark_task_completed(task_id, result_content)
+                        results[task_id] = result_content
 
-                    # Remove from running
-                    del running_agents[agent_id]
+                        # Remove from running
+                        del running_agents[agent_id]
 
-                    self.logger.info(f"Task {task_id} completed by {agent_id} (~{result_tokens} tokens)")
+                        self.logger.info(f"Task {task_id} completed by {agent_id} (~{result_tokens} tokens)")
 
-            # Brief sleep to avoid busy waiting
-            time.sleep(1)
+                # Use interruptible sleep to remain responsive to Ctrl+C
+                # Check every 0.1s for interrupts while waiting 1s total
+                def check_timeout():
+                    return time.time() - start_time > timeout_seconds
 
-            # Report progress
-            progress = decomposition.get_progress()
-            if progress["completed"] % 5 == 0:  # Report every 5 completions
-                self.blackboard.set_shared_data(
-                    f"orchestration_{orchestration_id}_progress",
-                    progress
-                )
+                interruptible_sleep(1.0, check_interval=0.1, interrupt_check=check_timeout)
+
+                # Report progress
+                progress = decomposition.get_progress()
+                if progress["completed"] % 5 == 0:  # Report every 5 completions
+                    self.blackboard.set_shared_data(
+                        f"orchestration_{orchestration_id}_progress",
+                        progress
+                    )
+
+        except KeyboardInterrupt:
+            cancelled = True
+            self.logger.warning(f"Orchestration {orchestration_id} cancelled by user")
+            self.blackboard.post_message(
+                "orchestrator",
+                f"Orchestration {orchestration_id} cancelled by user (Ctrl+C)",
+                "error"
+            )
+            raise
 
         return results
 
