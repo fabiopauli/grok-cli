@@ -12,11 +12,11 @@ These tools enable the AI to:
 - Ensure all steps are completed
 """
 
-from typing import Any, Dict
+from typing import Any
 
-from .base import BaseTool, ToolResult
 from ..core.config import Config
 from ..core.task_manager import TaskManager
+from .base import BaseTool, ToolResult
 
 
 class AddTaskTool(BaseTool):
@@ -37,7 +37,7 @@ class AddTaskTool(BaseTool):
         """Get the tool name."""
         return "add_task"
 
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """
         Add a new task to the task list.
 
@@ -97,7 +97,7 @@ class CompleteTaskTool(BaseTool):
         """Get the tool name."""
         return "complete_task"
 
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """
         Mark a task as completed.
 
@@ -143,7 +143,7 @@ class ListTasksTool(BaseTool):
         """Get the tool name."""
         return "list_tasks"
 
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """
         List tasks, optionally filtered.
 
@@ -237,7 +237,7 @@ class RemoveTaskTool(BaseTool):
         """Get the tool name."""
         return "remove_task"
 
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """
         Remove a task from the task list.
 

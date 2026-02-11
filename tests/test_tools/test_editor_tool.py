@@ -4,12 +4,13 @@ Unit tests for editor tools (diff-based editing).
 Tests ApplyDiffPatchTool for unified diff application.
 """
 
-import pytest
 import tempfile
 from pathlib import Path
 
-from src.tools.editor_tool import ApplyDiffPatchTool
+import pytest
+
 from src.core.config import Config
+from src.tools.editor_tool import ApplyDiffPatchTool
 
 
 class TestApplyDiffPatchTool:

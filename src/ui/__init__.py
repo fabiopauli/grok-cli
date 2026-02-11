@@ -5,18 +5,35 @@ Contains console interaction, formatting, and display logic.
 """
 
 from .console import (
-    get_console, get_prompt_session, initialize_prompt_session,
-    get_prompt_indicator, display_startup_banner, display_context_warning,
-    display_model_switch, display_file_added, display_directory_tree,
-    display_error, display_success, display_info, display_warning,
-    clear_screen, display_thinking_indicator, display_tool_call,
-    display_security_confirmation, display_assistant_response
+    clear_screen,
+    display_assistant_response,
+    display_context_warning,
+    display_directory_tree,
+    display_error,
+    display_file_added,
+    display_info,
+    display_model_switch,
+    display_security_confirmation,
+    display_startup_banner,
+    display_success,
+    display_thinking_indicator,
+    display_tool_call,
+    display_warning,
+    get_console,
+    get_prompt_indicator,
+    get_prompt_session,
+    initialize_prompt_session,
 )
-
 from .formatters import (
-    format_conversation_log, format_file_content, format_directory_tree,
-    format_context_stats, format_tool_result, format_error_message,
-    format_success_message, format_info_message, format_warning_message
+    format_context_stats,
+    format_conversation_log,
+    format_directory_tree,
+    format_error_message,
+    format_file_content,
+    format_info_message,
+    format_success_message,
+    format_tool_result,
+    format_warning_message,
 )
 
 __all__ = [

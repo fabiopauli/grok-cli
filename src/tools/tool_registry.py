@@ -7,11 +7,12 @@ Solves the dual-registration problem by managing both tool schemas
 (for API) and tool executors (for runtime) in one place.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from xai_sdk.chat import tool
 
-from .base import BaseTool, ToolExecutor
 from ..core.config import Config
+from .base import BaseTool, ToolExecutor
 
 
 class ToolRegistry:
@@ -28,9 +29,9 @@ class ToolRegistry:
     def __init__(self, config: Config):
         self.config = config
         self._executor = ToolExecutor(config)
-        self._dynamic_schemas: List[Dict[str, Any]] = []
+        self._dynamic_schemas: list[dict[str, Any]] = []
 
-    def register_tool(self, tool_instance: BaseTool, schema: Optional[Dict[str, Any]] = None) -> None:
+    def register_tool(self, tool_instance: BaseTool, schema: dict[str, Any] | None = None) -> None:
         """
         Register a tool with both executor and optional schema.
 
@@ -51,7 +52,7 @@ class ToolRegistry:
         tool_instance: BaseTool,
         name: str,
         description: str,
-        parameters: Dict[str, Any]
+        parameters: dict[str, Any]
     ) -> None:
         """
         Register a tool with inline schema definition.
@@ -70,7 +71,7 @@ class ToolRegistry:
             "parameters": parameters
         })
 
-    def get_all_tools(self) -> List[Any]:
+    def get_all_tools(self) -> list[Any]:
         """
         Get all tool definitions for API (static + dynamic).
 
@@ -94,7 +95,7 @@ class ToolRegistry:
         """Get the tool executor."""
         return self._executor
 
-    def execute_tool_call(self, tool_call_dict: Dict[str, Any]) -> str:
+    def execute_tool_call(self, tool_call_dict: dict[str, Any]) -> str:
         """Execute a tool call through the executor."""
         return self._executor.execute_tool_call(tool_call_dict)
 

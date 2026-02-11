@@ -9,14 +9,13 @@ dependencies in a single, testable container.
 This eliminates global state and enables easy test setup with mock dependencies.
 """
 
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 from xai_sdk import Client
 
 from src.core.config import Config
-from src.ui.adapter import UIProtocol, RichUIAdapter, MockUIAdapter
 from src.ui import get_console, get_prompt_session
+from src.ui.adapter import MockUIAdapter, RichUIAdapter, UIProtocol
 
 
 @dataclass
@@ -39,11 +38,11 @@ class AppContext:
     config: Config
     client: Client
     ui: UIProtocol
-    command_registry: Optional[object] = None
-    tool_executor: Optional[object] = None
+    command_registry: object | None = None
+    tool_executor: object | None = None
 
     @classmethod
-    def create_production(cls, config: Optional[Config] = None) -> 'AppContext':
+    def create_production(cls, config: Config | None = None) -> 'AppContext':
         """
         Create production AppContext with real UI and services.
 
@@ -85,9 +84,9 @@ class AppContext:
     @classmethod
     def create_testing(
         cls,
-        config: Optional[Config] = None,
-        ui: Optional[UIProtocol] = None,
-        client: Optional[Client] = None
+        config: Config | None = None,
+        ui: UIProtocol | None = None,
+        client: Client | None = None
     ) -> 'AppContext':
         """
         Create testing AppContext with mock UI and configurable dependencies.

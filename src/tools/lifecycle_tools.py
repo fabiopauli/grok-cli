@@ -6,9 +6,10 @@ Lifecycle Tools for Grok Assistant
 Provides task completion signaling for human-in-the-loop context management.
 """
 
-from typing import Dict, Any
-from .base import BaseTool, ToolResult
+from typing import Any
+
 from ..core.config import Config
+from .base import BaseTool, ToolResult
 
 
 class TaskCompletionSignal(Exception):
@@ -29,7 +30,7 @@ class TaskCompletedTool(BaseTool):
     def get_name(self) -> str:
         return "task_completed"
 
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """
         Signal task completion.
 

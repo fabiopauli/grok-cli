@@ -7,7 +7,7 @@ Provides utilities for responsive interrupt handling in long-running operations.
 """
 
 import time
-from typing import Callable, Optional
+from collections.abc import Callable
 
 
 class InterruptedError(Exception):
@@ -18,7 +18,7 @@ class InterruptedError(Exception):
 def interruptible_sleep(
     seconds: float,
     check_interval: float = 0.1,
-    interrupt_check: Optional[Callable[[], bool]] = None
+    interrupt_check: Callable[[], bool] | None = None
 ) -> bool:
     """
     Sleep for specified duration while remaining responsive to KeyboardInterrupt.
@@ -104,7 +104,7 @@ class InterruptiblePoller:
         self.timeout = timeout
         self.poll_interval = poll_interval
         self.check_interval = check_interval
-        self._start_time: Optional[float] = None
+        self._start_time: float | None = None
         self._interrupted = False
         self._attempts = 0
 

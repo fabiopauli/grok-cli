@@ -7,13 +7,12 @@ Tests that ReadFileTool and ReadMultipleFilesTool properly deduplicate
 files that are already in context.
 """
 
-import pytest
-from pathlib import Path
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
-from src.tools.file_tools import ReadFileTool, ReadMultipleFilesTool
-from src.tools.base import ToolResult
+import pytest
+
 from src.core.config import Config
+from src.tools.file_tools import ReadFileTool, ReadMultipleFilesTool
 
 
 @pytest.fixture

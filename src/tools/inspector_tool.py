@@ -8,12 +8,12 @@ Provides on-demand AST-based code structure inspection.
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
-from .base import BaseTool, ToolResult
 from ..core.config import Config
 from ..utils.code_inspector import CodeInspector
 from ..utils.path_utils import normalize_path
+from .base import BaseTool, ToolResult
 
 
 class InspectCodeStructureTool(BaseTool):
@@ -22,7 +22,7 @@ class InspectCodeStructureTool(BaseTool):
     def get_name(self) -> str:
         return "inspect_code_structure"
 
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """
         Execute inspect_code_structure to analyze Python file structure.
 
@@ -85,7 +85,7 @@ class InspectCodeStructureTool(BaseTool):
             return ToolResult.fail(f"Error inspecting file: {str(e)}")
 
     @staticmethod
-    def _remove_docstrings(inspection: Dict[str, Any]) -> Dict[str, Any]:
+    def _remove_docstrings(inspection: dict[str, Any]) -> dict[str, Any]:
         """Remove docstrings from inspection results."""
         inspection = inspection.copy()
         inspection["module_docstring"] = None
@@ -101,6 +101,6 @@ class InspectCodeStructureTool(BaseTool):
         return inspection
 
 
-def create_inspector_tools(config: Config) -> List[BaseTool]:
+def create_inspector_tools(config: Config) -> list[BaseTool]:
     """Create all code inspector tools."""
     return [InspectCodeStructureTool(config)]

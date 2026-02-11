@@ -7,8 +7,10 @@ Tests the display_assistant_response function with both plain text
 and markdown rendering modes.
 """
 
-from unittest.mock import Mock, patch, call
+from unittest.mock import call, patch
+
 from rich.markdown import Markdown
+
 from src.ui.console import display_assistant_response
 
 
@@ -186,8 +188,9 @@ class TestConfigIntegration:
 
     def test_config_markdown_rendering_field_exists(self):
         """Test that markdown rendering config field exists."""
-        from src.core.config import Config
         from dataclasses import fields
+
+        from src.core.config import Config
 
         # Check the field exists in the dataclass
         config_field_names = {f.name for f in fields(Config)}

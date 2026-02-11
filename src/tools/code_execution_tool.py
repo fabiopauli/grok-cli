@@ -7,7 +7,8 @@ A meta-tool that reminds the AI it can write and execute code to solve problems.
 Use with caution - only when the AI seems to be overthinking instead of coding.
 """
 
-from typing import Any, Dict
+from typing import Any
+
 from .base import BaseTool, ToolResult
 
 
@@ -27,7 +28,7 @@ class CodeExecutionReminderTool(BaseTool):
     def get_name(self) -> str:
         return "remind_code_execution"
 
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """
         Returns a reminder that the AI can write and execute code.
 
@@ -73,7 +74,7 @@ Remember: You're an AI that can CODE, not just suggest. Take action!
 
         return ToolResult.ok(reminder.strip())
 
-    def get_schema(self) -> Dict[str, Any]:
+    def get_schema(self) -> dict[str, Any]:
         """Get the JSON schema for this tool."""
         return {
             "name": self.get_name(),

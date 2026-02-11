@@ -7,12 +7,12 @@ Provides deterministic search and replace functionality.
 """
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
-from .base import BaseTool, ToolResult
 from ..core.config import Config
 from ..utils.editor_utils import search_and_replace, validate_replacement
 from ..utils.path_utils import normalize_path
+from .base import BaseTool, ToolResult
 
 
 class SearchReplaceFileTool(BaseTool):
@@ -22,7 +22,7 @@ class SearchReplaceFileTool(BaseTool):
         """Return the tool name for registration."""
         return "search_replace_file"
 
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """
         Execute search_replace_file for deterministic code editing.
 
@@ -54,7 +54,7 @@ class SearchReplaceFileTool(BaseTool):
 
             # Read file content
             try:
-                with open(normalized_path, "r", encoding="utf-8") as f:
+                with open(normalized_path, encoding="utf-8") as f:
                     original_content = f.read()
             except Exception as e:
                 return ToolResult.fail(f"Error reading file '{normalized_path}': {e}")
@@ -120,7 +120,7 @@ class ApplyDiffPatchTool(BaseTool):
         """Return the tool name for registration."""
         return "apply_diff_patch"
 
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """
         Apply a unified diff patch to a file.
 
@@ -131,7 +131,6 @@ class ApplyDiffPatchTool(BaseTool):
         Returns:
             ToolResult with success or error
         """
-        import re
         from pathlib import Path
 
         try:
@@ -151,7 +150,7 @@ class ApplyDiffPatchTool(BaseTool):
 
             # Read original content
             try:
-                with open(normalized_path, "r", encoding="utf-8") as f:
+                with open(normalized_path, encoding="utf-8") as f:
                     original_lines = f.readlines()
             except Exception as e:
                 return ToolResult.fail(f"Error reading file: {e}")
@@ -190,7 +189,7 @@ class ApplyDiffPatchTool(BaseTool):
         except Exception as e:
             return ToolResult.fail(f"Error applying diff patch: {str(e)}")
 
-    def _apply_unified_diff(self, original_lines: List[str], diff_text: str) -> List[str]:
+    def _apply_unified_diff(self, original_lines: list[str], diff_text: str) -> list[str]:
         """
         Apply a unified diff to original lines.
 
@@ -232,7 +231,7 @@ class ApplyDiffPatchTool(BaseTool):
                     raise ValueError(f"Invalid hunk header: {line}")
 
                 old_start = int(match.group(1)) - 1  # Convert to 0-indexed
-                old_count = int(match.group(2)) if match.group(2) else 1
+                int(match.group(2)) if match.group(2) else 1
 
                 # Process hunk lines - collect changes
                 i += 1
@@ -281,7 +280,7 @@ class ApplyDiffPatchTool(BaseTool):
         return result
 
 
-def create_editor_tools(config: Config) -> List[BaseTool]:
+def create_editor_tools(config: Config) -> list[BaseTool]:
     """Create all editor tools."""
     return [
         SearchReplaceFileTool(config),

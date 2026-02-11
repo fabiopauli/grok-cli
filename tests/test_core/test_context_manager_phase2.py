@@ -9,8 +9,10 @@ This test suite validates:
 3. Integration with config flags
 """
 
-import pytest
 from pathlib import Path
+
+import pytest
+
 from src.core.config import Config
 from src.core.context_manager import ContextManager
 

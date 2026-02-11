@@ -4,9 +4,8 @@
 Tests for new features: agent mode and command suggestions
 """
 
-import pytest
-from src.core.config import Config
 from src.commands import create_command_registry
+from src.core.config import Config
 
 
 class TestAgentMode:
@@ -80,7 +79,7 @@ class TestCommandSuggestions:
         registry = create_command_registry(config)
 
         # Completely different should return None
-        similar = registry.find_similar_command("/xyz123")
+        registry.find_similar_command("/xyz123")
         # Might return None or a low-score match
         # This depends on the threshold
 

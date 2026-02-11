@@ -6,13 +6,14 @@ Tests for DirectoryService
 Tests for directory change operations and the resolution of circular imports.
 """
 
-import pytest
 from pathlib import Path
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
+import pytest
+
+from src.core.config import Config
 from src.services.directory_service import DirectoryService
 from src.services.dtos import DirectoryChangeResult
-from src.core.config import Config
 
 
 @pytest.fixture
@@ -154,8 +155,9 @@ class TestCircularImportResolution:
     def test_no_circular_import_in_tools(self):
         """Test that file_tools no longer imports from commands."""
         # Import file_tools and check it doesn't import from commands
-        from src.tools import file_tools
         import inspect
+
+        from src.tools import file_tools
 
         source = inspect.getsource(file_tools)
 
@@ -165,8 +167,9 @@ class TestCircularImportResolution:
 
     def test_directory_service_used_by_tool(self):
         """Test that ChangeWorkingDirectoryTool uses DirectoryService."""
-        from src.tools.file_tools import ChangeWorkingDirectoryTool
         import inspect
+
+        from src.tools.file_tools import ChangeWorkingDirectoryTool
 
         source = inspect.getsource(ChangeWorkingDirectoryTool)
 
@@ -176,8 +179,9 @@ class TestCircularImportResolution:
 
     def test_directory_service_used_by_command(self):
         """Test that FolderCommand uses DirectoryService."""
-        from src.commands.file_commands import FolderCommand
         import inspect
+
+        from src.commands.file_commands import FolderCommand
 
         source = inspect.getsource(FolderCommand.execute)
 

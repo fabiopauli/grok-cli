@@ -6,10 +6,11 @@ Tests for TaskManager
 Tests the task management functionality for AI todo lists.
 """
 
-import pytest
 from datetime import datetime
 
-from src.core.task_manager import TaskManager, Task
+import pytest
+
+from src.core.task_manager import Task, TaskManager
 
 
 class TestTaskCreation:
@@ -231,7 +232,7 @@ class TestTaskSummary:
     def test_get_summary_with_tasks(self):
         """Test getting summary with various task states."""
         manager = TaskManager()
-        pending_task = manager.add_task("Pending task")
+        manager.add_task("Pending task")
         in_progress_task = manager.add_task("In progress task")
         completed_task = manager.add_task("Completed task")
 
@@ -262,7 +263,7 @@ class TestTaskSummary:
         """Test that summary orders tasks correctly."""
         manager = TaskManager()
         manager.add_task("Low priority", priority="low")
-        high_task = manager.add_task("High priority", priority="high")
+        manager.add_task("High priority", priority="high")
         in_progress = manager.add_task("In progress")
 
         manager.start_task(in_progress)
@@ -294,8 +295,8 @@ class TestTaskCounts:
     def test_get_task_count_with_tasks(self):
         """Test getting counts with various task states."""
         manager = TaskManager()
-        task1 = manager.add_task("Pending 1")
-        task2 = manager.add_task("Pending 2")
+        manager.add_task("Pending 1")
+        manager.add_task("Pending 2")
         task3 = manager.add_task("In progress")
         task4 = manager.add_task("Completed")
 

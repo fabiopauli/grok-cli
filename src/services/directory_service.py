@@ -8,7 +8,6 @@ testable service layer for directory operations.
 """
 
 from pathlib import Path
-from typing import Optional
 
 from ..core.config import Config
 from .dtos import DirectoryChangeResult
@@ -55,7 +54,7 @@ class DirectoryService:
         except Exception as e:
             raise ValueError(f"Invalid path: {str(e)}")
 
-    def validate_directory(self, path: Path) -> tuple[bool, Optional[str]]:
+    def validate_directory(self, path: Path) -> tuple[bool, str | None]:
         """
         Validate that a path exists and is a directory.
 
@@ -80,7 +79,7 @@ class DirectoryService:
     def change_directory(
         self,
         new_path: Path,
-        session: Optional[object] = None
+        session: object | None = None
     ) -> DirectoryChangeResult:
         """
         Change the working directory.

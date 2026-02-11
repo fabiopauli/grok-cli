@@ -227,7 +227,7 @@ class ContextManager:
         if normalized_path in self.mounted_files:
             # Re-read from disk
             try:
-                with open(normalized_path, 'r', encoding='utf-8') as f:
+                with open(normalized_path, encoding='utf-8') as f:
                     new_content = f.read()
 
                 # Update mounted file with fresh content
@@ -243,7 +243,7 @@ class ContextManager:
                 # If we can't read the file, it might have been deleted
                 # In that case, unmount it
                 print(f"Warning: Failed to refresh mounted file {path}: {e}")
-                print(f"  Unmounting file from context.")
+                print("  Unmounting file from context.")
                 del self.mounted_files[normalized_path]
                 return False
 

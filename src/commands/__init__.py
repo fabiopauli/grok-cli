@@ -4,32 +4,58 @@ Command module for Grok Assistant
 Contains command handlers implementing the command pattern.
 """
 
-from .base import BaseCommand, CommandResult, CommandRegistry
-from .system_commands import ExitCommand, ClearScreenCommand, ClearContextCommand, HelpCommand, OsCommand, FuzzyCommand, AgentCommand, MaxStepsCommand, JobsCommand, SelfModeCommand, ReloadToolsCommand
-from .file_commands import AddCommand, RemoveCommand, FolderCommand
-from .context_commands import (
-    ContextCommand, LogCommand, ReasonerCommand, DefaultModelCommand,
-    ContextModeCommand, SequentialContextCommand, SmartTruncationCommand,
-    CoderCommand, Grok4Command, Grok4ReasonerCommand, MaxContextCommand
-)
-from .memory_commands import MemoryCommand
-from .agentic_commands import PlanCommand, ImproveCommand, SpawnCommand, BlackboardCommand, EpisodesCommand, OrchestrateCommand
-
 from ..core.config import Config
+from .agentic_commands import (
+    BlackboardCommand,
+    EpisodesCommand,
+    ImproveCommand,
+    OrchestrateCommand,
+    PlanCommand,
+    SpawnCommand,
+)
+from .base import BaseCommand, CommandRegistry, CommandResult
+from .context_commands import (
+    CoderCommand,
+    ContextCommand,
+    ContextModeCommand,
+    DefaultModelCommand,
+    Grok4Command,
+    Grok4ReasonerCommand,
+    LogCommand,
+    MaxContextCommand,
+    ReasonerCommand,
+    SequentialContextCommand,
+    SmartTruncationCommand,
+)
+from .file_commands import AddCommand, FolderCommand, RemoveCommand
+from .memory_commands import MemoryCommand
+from .system_commands import (
+    AgentCommand,
+    ClearContextCommand,
+    ClearScreenCommand,
+    ExitCommand,
+    FuzzyCommand,
+    HelpCommand,
+    JobsCommand,
+    MaxStepsCommand,
+    OsCommand,
+    ReloadToolsCommand,
+    SelfModeCommand,
+)
 
 
 def create_command_registry(config: Config) -> CommandRegistry:
     """
     Create and configure the command registry with all available commands.
-    
+
     Args:
         config: Configuration object
-        
+
     Returns:
         Configured CommandRegistry instance
     """
     registry = CommandRegistry(config)
-    
+
     # System commands
     registry.register(ExitCommand(config))
     registry.register(ClearScreenCommand(config))
@@ -47,7 +73,7 @@ def create_command_registry(config: Config) -> CommandRegistry:
     registry.register(AddCommand(config))
     registry.register(RemoveCommand(config))
     registry.register(FolderCommand(config))
-    
+
     # Context commands
     registry.register(ContextCommand(config))
     registry.register(LogCommand(config))
@@ -77,7 +103,7 @@ def create_command_registry(config: Config) -> CommandRegistry:
 
 __all__ = [
     'BaseCommand',
-    'CommandResult', 
+    'CommandResult',
     'CommandRegistry',
     'create_command_registry'
 ]

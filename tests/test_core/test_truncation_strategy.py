@@ -10,7 +10,6 @@ Tests the sliding window truncation logic, including:
 - Token budget verification
 """
 
-import pytest
 from datetime import datetime
 
 from src.core.config import Config

@@ -4,13 +4,11 @@ Unit tests for shell utilities and security features.
 Tests dangerous command detection and logging.
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from src.utils.shell_utils import (
-    is_dangerous_command,
-    log_dangerous_command
-)
+import pytest
+
+from src.utils.shell_utils import is_dangerous_command, log_dangerous_command
 
 
 class TestDangerousCommandDetection:

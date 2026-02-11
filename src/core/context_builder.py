@@ -7,10 +7,11 @@ Builds API-ready context from turns and memories.
 Extracted from ContextManager for cleaner separation of concerns.
 """
 
-from typing import List, Dict, Any, Optional
-from enum import Enum
-from dataclasses import dataclass
 import hashlib
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any
+
 from .config import Config
 from .turn_logger import Turn
 
@@ -47,13 +48,13 @@ class ContextBuilder:
             config: Configuration object
         """
         self.config = config
-        self._cache_metadata: Optional[CacheMetadata] = None
+        self._cache_metadata: CacheMetadata | None = None
 
     def _compute_hash(self, content: str) -> str:
         """Compute hash for cache validation."""
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
-    def get_cache_metadata(self) -> Optional[CacheMetadata]:
+    def get_cache_metadata(self) -> CacheMetadata | None:
         """Get current cache metadata for monitoring."""
         return self._cache_metadata
 
@@ -66,7 +67,7 @@ class ContextBuilder:
             self._compute_hash(new_files) == self._cache_metadata.mounted_files_hash
         )
 
-    def build_system_prompt(self, memories: List[Dict[str, Any]], task_summary: str = "") -> str:
+    def build_system_prompt(self, memories: list[dict[str, Any]], task_summary: str = "") -> str:
         """
         Build system prompt with memories and task summary included.
 
@@ -108,9 +109,9 @@ class ContextBuilder:
 
     def build_context_from_turns(
         self,
-        turn_logs: List[Turn],
+        turn_logs: list[Turn],
         mode: ContextMode
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Build context messages from turn logs.
 
@@ -141,7 +142,7 @@ class ContextBuilder:
 
         return context
 
-    def turn_to_messages(self, turn: Turn) -> List[Dict[str, Any]]:
+    def turn_to_messages(self, turn: Turn) -> list[dict[str, Any]]:
         """
         Convert a turn to message format.
 
@@ -165,15 +166,15 @@ class ContextBuilder:
 
     def build_full_api_context(
         self,
-        system_messages: List[Dict[str, Any]],
-        turn_logs: List[Turn],
-        current_turn_messages: List[Dict[str, Any]],
-        memories: List[Dict[str, Any]],
+        system_messages: list[dict[str, Any]],
+        turn_logs: list[Turn],
+        current_turn_messages: list[dict[str, Any]],
+        memories: list[dict[str, Any]],
         mode: ContextMode,
         task_summary: str = "",
         enable_cache_hints: bool = False,
         include_system_prompt: bool = True
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Build complete API-ready context with optional cache hints.
 

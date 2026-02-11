@@ -1,8 +1,8 @@
 import json
-from typing import List
 
-from src.ui import get_console, get_prompt_session, display_tool_call
 from src.tools import TaskCompletionSignal
+from src.ui import display_tool_call, get_console, get_prompt_session
+
 
 def handle_tool_calls(response, tool_executor, session, enable_reflection=True):
     """Handle tool calls from the AI response."""
@@ -40,7 +40,7 @@ def handle_tool_calls(response, tool_executor, session, enable_reflection=True):
                 tool_results.append(("task_completed", f"Task completed: {signal.summary}"))
 
                 # Then trigger user interaction
-                context_cleared = handle_task_completion_interaction(
+                handle_task_completion_interaction(
                     session,
                     signal.summary,
                     signal.next_steps
@@ -126,7 +126,7 @@ def handle_task_completion_interaction(session, summary: str, next_steps: str = 
         return False
 
     # Above threshold - offer context management
-    console.print(f"\n[bold green]✓ Task Completed[/bold green]")
+    console.print("\n[bold green]✓ Task Completed[/bold green]")
     console.print(f"[dim]{summary}[/dim]")
     if next_steps:
         console.print(f"[dim]Next steps: {next_steps}[/dim]")

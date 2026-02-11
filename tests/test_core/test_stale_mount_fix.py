@@ -14,12 +14,9 @@ Test Coverage:
 5. Integration with EditFileTool and CreateFileTool
 """
 
-import pytest
-from pathlib import Path
 
-from src.core.config import Config
 from src.core.context_manager import ContextManager
-from src.tools.file_tools import EditFileTool, CreateFileTool, CreateMultipleFilesTool
+from src.tools.file_tools import CreateFileTool, CreateMultipleFilesTool, EditFileTool
 
 
 class TestStaleMountProblemFix:
@@ -307,7 +304,6 @@ class TestToolContextManagerInjection:
 
     def test_base_tool_has_set_context_manager_method(self, mock_config):
         """Verify BaseTool has set_context_manager method."""
-        from src.tools.base import BaseTool
 
         # Create a concrete tool instance
         edit_tool = EditFileTool(mock_config)
@@ -381,7 +377,7 @@ class TestToolExecutorInjection:
 
     def test_inject_does_not_raise_error_for_any_tool(self, mock_config):
         """Verify inject_context_manager doesn't raise errors for any tool type."""
-        from src.tools.base import ToolExecutor, BaseTool, ToolResult
+        from src.tools.base import BaseTool, ToolExecutor, ToolResult
 
         # Create a tool that inherits from BaseTool
         class MinimalTool(BaseTool):

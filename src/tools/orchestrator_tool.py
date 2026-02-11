@@ -9,13 +9,13 @@ Decomposes tasks, assigns roles, monitors progress, and aggregates results.
 
 import json
 import time
-from typing import Any, Optional, List, Dict
+from typing import Any
 
-from .base import BaseTool, ToolResult
-from .multiagent_tool import BlackboardCommunication, AgentRole
 from ..core.config import Config
-from ..utils.logging_config import get_logger
 from ..utils.async_utils import interruptible_sleep
+from ..utils.logging_config import get_logger
+from .base import BaseTool, ToolResult
+from .multiagent_tool import AgentRole, BlackboardCommunication
 
 
 class TaskDecomposition:
@@ -24,15 +24,15 @@ class TaskDecomposition:
     def __init__(self, goal: str):
         """Initialize task decomposition."""
         self.goal = goal
-        self.sub_tasks: List[Dict[str, Any]] = []
-        self.dependencies: Dict[int, List[int]] = {}  # task_id -> [dependency_ids]
+        self.sub_tasks: list[dict[str, Any]] = []
+        self.dependencies: dict[int, list[int]] = {}  # task_id -> [dependency_ids]
 
     def add_sub_task(
         self,
         description: str,
         role: str,
         priority: int = 1,
-        dependencies: Optional[List[int]] = None
+        dependencies: list[int] | None = None
     ) -> int:
         """
         Add a sub-task to the decomposition.
@@ -64,7 +64,7 @@ class TaskDecomposition:
 
         return task_id
 
-    def get_ready_tasks(self) -> List[Dict[str, Any]]:
+    def get_ready_tasks(self) -> list[dict[str, Any]]:
         """Get tasks that are ready to execute (dependencies satisfied)."""
         ready = []
         for task in self.sub_tasks:
@@ -96,7 +96,7 @@ class TaskDecomposition:
         """Check if all tasks are completed."""
         return all(task["status"] == "completed" for task in self.sub_tasks)
 
-    def get_progress(self) -> Dict[str, int]:
+    def get_progress(self) -> dict[str, int]:
         """Get progress statistics."""
         total = len(self.sub_tasks)
         completed = sum(1 for task in self.sub_tasks if task["status"] == "completed")
@@ -141,7 +141,7 @@ class OrchestratorTool(BaseTool):
         self.blackboard = BlackboardCommunication(self.blackboard_path)
 
         # Active orchestrations
-        self.orchestrations: Dict[str, TaskDecomposition] = {}
+        self.orchestrations: dict[str, TaskDecomposition] = {}
 
     def set_client(self, client):
         """Set the xAI client."""
@@ -286,14 +286,14 @@ class OrchestratorTool(BaseTool):
             dependencies=[task_id_plan, task_id_research]
         )
 
-        task_id_review = decomposition.add_sub_task(
+        decomposition.add_sub_task(
             "Review implementation for quality and correctness",
             AgentRole.REVIEWER,
             priority=3,
             dependencies=[task_id_code]
         )
 
-        task_id_test = decomposition.add_sub_task(
+        decomposition.add_sub_task(
             "Create and run tests for the implementation",
             AgentRole.TESTER,
             priority=3,
@@ -302,7 +302,7 @@ class OrchestratorTool(BaseTool):
 
         return decomposition
 
-    def _decompose_with_ai(self, goal: str) -> List[Dict[str, Any]]:
+    def _decompose_with_ai(self, goal: str) -> list[dict[str, Any]]:
         """Use AI to decompose task into sub-tasks."""
         prompt = f"""Decompose this complex task into sub-tasks with role assignments:
 
@@ -356,7 +356,7 @@ Return only the JSON array."""
         max_agents: int,
         timeout_seconds: int,
         max_tokens: int
-    ) -> Dict[int, str]:
+    ) -> dict[int, str]:
         """
         Execute the orchestration by spawning agents.
 
@@ -382,8 +382,6 @@ Return only the JSON array."""
         start_time = time.time()
         running_agents = {}  # agent_id -> task_id
         tokens_used = 0  # Track estimated token usage
-        max_retries_per_task = 3  # Prevent infinite retry loops
-        cancelled = False
 
         # Post orchestration start to blackboard
         self.blackboard.post_message(
@@ -456,7 +454,6 @@ Return only the JSON array."""
                     )
 
         except KeyboardInterrupt:
-            cancelled = True
             self.logger.warning(f"Orchestration {orchestration_id} cancelled by user")
             self.blackboard.post_message(
                 "orchestrator",
@@ -467,7 +464,7 @@ Return only the JSON array."""
 
         return results
 
-    def _spawn_agent_for_task(self, task: Dict[str, Any], orchestration_id: str) -> Optional[str]:
+    def _spawn_agent_for_task(self, task: dict[str, Any], orchestration_id: str) -> str | None:
         """
         Spawn an agent for a specific task.
 
@@ -483,13 +480,6 @@ Return only the JSON array."""
         task_id = task["id"]
 
         # Create agent task with orchestration context
-        agent_task = f"""[Orchestration: {orchestration_id}, Task: {task_id}]
-
-{description}
-
-IMPORTANT: When complete, post your result to the blackboard with:
-- message_type: "result"
-- Include task completion summary in the message"""
 
         # For now, we'll return a simulated agent ID
         # In a real implementation, this would spawn an actual subprocess
@@ -513,7 +503,7 @@ IMPORTANT: When complete, post your result to the blackboard with:
 
         return agent_id
 
-    def _aggregate_results(self, decomposition: TaskDecomposition, results: Dict[int, str]) -> str:
+    def _aggregate_results(self, decomposition: TaskDecomposition, results: dict[int, str]) -> str:
         """
         Aggregate results from all sub-tasks.
 
@@ -527,7 +517,7 @@ IMPORTANT: When complete, post your result to the blackboard with:
         progress = decomposition.get_progress()
 
         lines = [
-            f"Orchestration Summary:",
+            "Orchestration Summary:",
             f"Goal: {decomposition.goal}",
             f"Total Tasks: {progress['total']}",
             f"Completed: {progress['completed']}",
@@ -549,7 +539,7 @@ IMPORTANT: When complete, post your result to the blackboard with:
         return "\n".join(lines)
 
 
-def create_orchestrator_tools(config: Config, client=None) -> List[BaseTool]:
+def create_orchestrator_tools(config: Config, client=None) -> list[BaseTool]:
     """
     Create orchestrator tools.
 

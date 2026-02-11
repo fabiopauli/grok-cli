@@ -6,7 +6,6 @@ Editor Utilities - Deterministic search and replace
 Provides indentation-aware, exact-match search and replace functionality.
 """
 
-from typing import Tuple
 
 
 def normalize_indentation(text: str) -> str:
@@ -27,7 +26,7 @@ def normalize_indentation(text: str) -> str:
     return normalized
 
 
-def find_match_with_normalized_indent(content: str, search_block: str) -> Tuple[int, int, int]:
+def find_match_with_normalized_indent(content: str, search_block: str) -> tuple[int, int, int]:
     """
     Find search_block in content, normalizing indentation for matching.
 
@@ -68,7 +67,7 @@ def find_match_with_normalized_indent(content: str, search_block: str) -> Tuple[
 
 def search_and_replace(
     content: str, search_block: str, replace_block: str, strict: bool = True
-) -> Tuple[bool, str, int, str]:
+) -> tuple[bool, str, int, str]:
     """
     Perform deterministic search and replace with indentation awareness.
 
@@ -102,7 +101,7 @@ def search_and_replace(
             False,
             content,
             0,
-            f"Search block not found in file. Make sure you're searching for an exact code snippet that exists in the file.",
+            "Search block not found in file. Make sure you're searching for an exact code snippet that exists in the file.",
         )
 
     if strict and match_count > 1:
@@ -139,7 +138,7 @@ def search_and_replace(
 
 def validate_replacement(
     original_content: str, new_content: str, search_block: str, replace_block: str
-) -> Tuple[bool, str]:
+) -> tuple[bool, str]:
     """
     Validate that a replacement was successful.
 

@@ -11,9 +11,9 @@ we maintain a structured state object (JSON-serializable) that preserves
 key facts across truncations.
 """
 
-from dataclasses import dataclass, field, asdict
-from typing import Any, Dict, List, Set
 import json
+from dataclasses import asdict, dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -41,28 +41,28 @@ class ContextState:
     """
 
     # File tracking
-    files_modified: Set[str] = field(default_factory=set)
-    files_created: Set[str] = field(default_factory=set)
-    files_read: Set[str] = field(default_factory=set)
+    files_modified: set[str] = field(default_factory=set)
+    files_created: set[str] = field(default_factory=set)
+    files_read: set[str] = field(default_factory=set)
 
     # Task tracking
-    tasks_completed: List[str] = field(default_factory=list)
-    tasks_pending: List[str] = field(default_factory=list)
+    tasks_completed: list[str] = field(default_factory=list)
+    tasks_pending: list[str] = field(default_factory=list)
 
     # Code structure knowledge
-    key_functions: Dict[str, str] = field(default_factory=dict)  # name -> location
-    key_classes: Dict[str, str] = field(default_factory=dict)    # name -> location
+    key_functions: dict[str, str] = field(default_factory=dict)  # name -> location
+    key_classes: dict[str, str] = field(default_factory=dict)    # name -> location
 
     # Error tracking
-    errors_fixed: List[str] = field(default_factory=list)
+    errors_fixed: list[str] = field(default_factory=list)
 
     # Current understanding
     main_goal: str = ""
-    blockers: List[str] = field(default_factory=list)
-    decisions_made: List[str] = field(default_factory=list)
+    blockers: list[str] = field(default_factory=list)
+    decisions_made: list[str] = field(default_factory=list)
 
     # Tool usage
-    tools_used: Set[str] = field(default_factory=set)
+    tools_used: set[str] = field(default_factory=set)
 
     def merge(self, other: 'ContextState') -> None:
         """
@@ -167,7 +167,7 @@ class ContextState:
 
         return "\n\n".join(parts)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert state to dictionary for serialization.
 
@@ -183,7 +183,7 @@ class ContextState:
         return data
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ContextState':
+    def from_dict(cls, data: dict[str, Any]) -> 'ContextState':
         """
         Create ContextState from dictionary.
 
@@ -255,7 +255,7 @@ class ContextState:
             and not self.tools_used
         )
 
-    def get_summary_stats(self) -> Dict[str, int]:
+    def get_summary_stats(self) -> dict[str, int]:
         """
         Get summary statistics about the state.
 

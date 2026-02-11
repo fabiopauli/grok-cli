@@ -74,6 +74,11 @@ config.json
 .grok_global_memory.json
 grok_memories_export_*.json
 
+# Multi-agent runtime files
+.grok_blackboard.json
+.grok_blackboard.json.lock
+.grok_episodes.json
+
 # Other common ignores
 *.bak
 *.tmp

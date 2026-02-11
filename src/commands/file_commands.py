@@ -7,28 +7,28 @@ Commands that handle file operations like add, remove, folder changes, etc.
 """
 
 from pathlib import Path
-from typing import Optional
 
-from .base import BaseCommand, CommandResult
 from ..core.session import GrokSession
+from .base import BaseCommand, CommandResult
 
 
 class AddCommand(BaseCommand):
     """Handle /add command with fuzzy file finding support."""
-    
+
     def get_pattern(self) -> str:
         return "/add "
-    
+
     def get_description(self) -> str:
         return "Add file/directory to context with fuzzy matching"
-    
+
     def matches(self, user_input: str) -> bool:
         return user_input.strip().lower().startswith(self.config.ADD_COMMAND_PREFIX)
-    
+
     def execute(self, user_input: str, session: GrokSession) -> CommandResult:
-        from ..ui.console import get_console, get_prompt_session
-        from ..utils.file_utils import find_best_matching_file, safe_file_read, normalize_path
         import os
+
+        from ..ui.console import get_console, get_prompt_session
+        from ..utils.file_utils import find_best_matching_file, normalize_path, safe_file_read
 
         console = get_console()
         prompt_session = get_prompt_session()
@@ -135,16 +135,16 @@ class AddCommand(BaseCommand):
 
 class RemoveCommand(BaseCommand):
     """Handle /remove command to remove files from context."""
-    
+
     def get_pattern(self) -> str:
         return "/remove "
-    
+
     def get_description(self) -> str:
         return "Remove file from context"
-    
+
     def matches(self, user_input: str) -> bool:
         return user_input.strip().lower().startswith("/remove ")
-    
+
     def execute(self, user_input: str, session: GrokSession) -> CommandResult:
         from ..ui.console import get_console
         from ..utils.file_utils import find_best_matching_file
@@ -183,19 +183,19 @@ class RemoveCommand(BaseCommand):
 
 class FolderCommand(BaseCommand):
     """Handle /folder command to change working directory."""
-    
+
     def get_pattern(self) -> str:
         return "/folder "
-    
+
     def get_description(self) -> str:
         return "Change working directory"
-    
+
     def matches(self, user_input: str) -> bool:
         return user_input.strip().lower().startswith("/folder ")
-    
+
     def execute(self, user_input: str, session: GrokSession) -> CommandResult:
-        from ..ui.console import get_console, get_prompt_session
         from ..services.directory_service import DirectoryService
+        from ..ui.console import get_console, get_prompt_session
 
         console = get_console()
         prompt_session = get_prompt_session()
@@ -215,41 +215,41 @@ class FolderCommand(BaseCommand):
         if not is_valid:
             console.print(f"[bold red]✗[/bold red] {error_msg}")
             return CommandResult.fail(error_msg)
-        
+
         # Handle memory integration before changing directory
         memory_manager = session.get_memory_manager()
         has_existing_memories = memory_manager.has_directory_memories(new_path)
-        
+
         if has_existing_memories:
             # Directory has existing memories - ask user if they want to use them
             memory_count = len(memory_manager.get_directory_memories(new_path))
             console.print(f"[yellow]Found {memory_count} existing memories in target directory.[/yellow]")
-            
+
             use_memories = prompt_session.prompt("Use existing memories? (Y/n): ", default="y").strip().lower()
-            
+
             if use_memories in ['n', 'no']:
                 # User chose not to use existing memories
                 console.print("[dim]Existing memories will not be loaded.[/dim]")
         else:
             # Directory has no memories - ask if user wants to create new memory set
             create_memories = prompt_session.prompt("Create new memory set for this directory? (y/N): ", default="n").strip().lower()
-            
+
             if create_memories in ['y', 'yes']:
                 # Initialize empty memory set for the directory
                 memory_manager.initialize_directory_memories(new_path)
                 console.print("[green]✓ Initialized new memory set for directory[/green]")
-        
+
         # Use DirectoryService to change directory
         result = directory_service.change_directory(new_path, session)
 
         if result.success:
-            console.print(f"[bold green]✓[/bold green] Changed working directory")
+            console.print("[bold green]✓[/bold green] Changed working directory")
             console.print(f"[dim]From:[/dim] [bright_cyan]{result.old_path}[/bright_cyan]")
             console.print(f"[dim]To:[/dim] [bright_cyan]{result.new_path}[/bright_cyan]")
         else:
             console.print(f"[bold red]✗[/bold red] {result.error}")
             return CommandResult.fail(result.error)
-        
+
         # Show memory status
         if result.memory_info:
             current_memories = memory_manager.get_directory_memories()

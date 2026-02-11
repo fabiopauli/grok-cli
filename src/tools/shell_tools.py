@@ -6,19 +6,19 @@ Shell execution tools for Grok Assistant
 Handles bash and PowerShell command execution with security controls.
 """
 
-from typing import Any, Dict
+from typing import Any
 
-from .base import BaseTool, ToolResult
 from ..utils.shell_utils import run_bash_command, run_powershell_command
+from .base import BaseTool, ToolResult
 
 
 class BashTool(BaseTool):
     """Handle run_bash function calls."""
-    
+
     def get_name(self) -> str:
         return "run_bash"
-    
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """Execute bash command with security confirmation."""
         try:
             command = args["command"]
@@ -30,11 +30,11 @@ class BashTool(BaseTool):
 
 class PowerShellTool(BaseTool):
     """Handle run_powershell function calls."""
-    
+
     def get_name(self) -> str:
         return "run_powershell"
-    
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """Execute PowerShell command with security confirmation."""
         try:
             command = args["command"]
@@ -50,7 +50,7 @@ class BackgroundBashTool(BaseTool):
     def get_name(self) -> str:
         return "run_bash_background"
 
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """Execute bash command in background."""
         try:
             command = args["command"]
@@ -79,7 +79,7 @@ class BackgroundPowerShellTool(BaseTool):
     def get_name(self) -> str:
         return "run_powershell_background"
 
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """Execute PowerShell command in background."""
         try:
             command = args["command"]
@@ -108,7 +108,7 @@ class CheckBackgroundJobTool(BaseTool):
     def get_name(self) -> str:
         return "check_background_job"
 
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """Check status of a background job."""
         try:
             job_id = int(args["job_id"])
@@ -156,7 +156,7 @@ class KillBackgroundJobTool(BaseTool):
     def get_name(self) -> str:
         return "kill_background_job"
 
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """Kill a background job."""
         try:
             job_id = int(args["job_id"])
@@ -180,7 +180,7 @@ class ListBackgroundJobsTool(BaseTool):
     def get_name(self) -> str:
         return "list_background_jobs"
 
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """List all background jobs."""
         try:
             if not hasattr(self.config, '_background_manager'):

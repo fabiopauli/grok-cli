@@ -11,26 +11,24 @@ Supports two modes:
 """
 
 import argparse
+import contextlib
 import json
 import sys
 
 from dotenv import load_dotenv
-from xai_sdk import Client
 
 from src.commands import create_command_registry
-
-# Import our refactored modules
 from src.core.app_context import AppContext
 from src.core.config import Config
 from src.core.session import GrokSession
-from src.core.tool_utils import handle_tool_calls, handle_task_completion_interaction
-from src.tools import create_tool_executor, TaskCompletionSignal
+from src.core.tool_utils import handle_task_completion_interaction
+from src.tools import TaskCompletionSignal, create_tool_executor
 from src.ui import (
+    display_assistant_response,
     display_error,
     display_startup_banner,
     display_thinking_indicator,
     display_tool_call,
-    display_assistant_response,
     get_console,
     get_prompt_indicator,
     get_prompt_session,
@@ -126,7 +124,7 @@ def handle_tool_calls(response, tool_executor, session, enable_reflection=True):
                 tool_results.append(f"Task completed: {signal.summary}")
 
                 # Then trigger user interaction
-                context_cleared = handle_task_completion_interaction(
+                handle_task_completion_interaction(
                     session,
                     signal.summary,
                     signal.next_steps
@@ -345,10 +343,8 @@ def main_loop(context: AppContext) -> None:
             console.print("\n[yellow]⚠️  Interrupted by user (Ctrl+C).[/yellow]")
             console.print("[dim]Press Ctrl+C again to exit, or continue typing...[/dim]")
             # Complete the current turn if one is active
-            try:
+            with contextlib.suppress(BaseException):
                 session.complete_turn("Interrupted by user")
-            except:
-                pass
             continue  # Continue the loop instead of breaking
         except EOFError:
             console.print("\n[yellow]EOF received, exiting.[/yellow]")
@@ -366,7 +362,7 @@ def one_shot_mode(prompt: str, context: AppContext) -> None:
         prompt: User prompt to execute
         context: Application context with all dependencies
     """
-    console = get_console()
+    get_console()
 
     try:
         # Initialize session

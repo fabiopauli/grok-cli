@@ -7,7 +7,8 @@ Handles token estimation, threshold calculation, and usage tracking.
 Extracted from ContextManager for single responsibility principle.
 """
 
-from typing import List, Dict, Any, Tuple
+from typing import Any
+
 from .config import Config
 
 
@@ -55,7 +56,7 @@ class TokenManager:
         effective_max = int(max_tokens * (1 - buffer))
         return int(effective_max * 0.7)
 
-    def estimate_context_tokens(self, messages: List[Dict[str, Any]]) -> Tuple[int, Dict[str, int]]:
+    def estimate_context_tokens(self, messages: list[dict[str, Any]]) -> tuple[int, dict[str, int]]:
         """
         Estimate token usage for a message list.
 
@@ -68,7 +69,7 @@ class TokenManager:
         from ..utils.text_utils import estimate_token_usage
         return estimate_token_usage(messages)
 
-    def get_usage_stats(self, messages: List[Dict[str, Any]], model: str) -> Dict[str, Any]:
+    def get_usage_stats(self, messages: list[dict[str, Any]], model: str) -> dict[str, Any]:
         """
         Get comprehensive token usage statistics.
 
@@ -82,7 +83,7 @@ class TokenManager:
         from ..utils.text_utils import get_context_usage_info
         return get_context_usage_info(messages, model, self.config)
 
-    def should_truncate_cache_mode(self, messages: List[Dict[str, Any]]) -> bool:
+    def should_truncate_cache_mode(self, messages: list[dict[str, Any]]) -> bool:
         """
         Determine if truncation is needed in cache-optimized mode.
 
@@ -95,7 +96,7 @@ class TokenManager:
         estimated_tokens, _ = self.estimate_context_tokens(messages)
         return estimated_tokens > self.get_cache_threshold()
 
-    def should_truncate_smart_mode(self, messages: List[Dict[str, Any]]) -> bool:
+    def should_truncate_smart_mode(self, messages: list[dict[str, Any]]) -> bool:
         """
         Determine if truncation is needed in smart truncation mode.
 

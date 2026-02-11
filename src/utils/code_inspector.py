@@ -8,14 +8,14 @@ Provides structural analysis of Python files without heavy complexity metrics.
 
 import ast
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class CodeInspector:
     """Lightweight Python code inspector using AST."""
 
     @staticmethod
-    def inspect_file(file_path: str | Path) -> Dict[str, Any]:
+    def inspect_file(file_path: str | Path) -> dict[str, Any]:
         """
         Inspect a Python file and extract its structure.
 
@@ -46,7 +46,7 @@ class CodeInspector:
                     "module_docstring": None,
                 }
 
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 source = f.read()
 
             # Parse AST
@@ -90,7 +90,7 @@ class CodeInspector:
             }
 
     @staticmethod
-    def _extract_imports(tree: ast.AST) -> List[Dict[str, Any]]:
+    def _extract_imports(tree: ast.AST) -> list[dict[str, Any]]:
         """Extract import statements."""
         imports = []
 
@@ -122,7 +122,7 @@ class CodeInspector:
         return imports
 
     @staticmethod
-    def _extract_classes(tree: ast.AST) -> List[Dict[str, Any]]:
+    def _extract_classes(tree: ast.AST) -> list[dict[str, Any]]:
         """Extract class definitions."""
         classes = []
 
@@ -157,7 +157,7 @@ class CodeInspector:
         return classes
 
     @staticmethod
-    def _extract_functions(tree: ast.AST) -> List[Dict[str, Any]]:
+    def _extract_functions(tree: ast.AST) -> list[dict[str, Any]]:
         """Extract top-level function definitions (not methods)."""
         functions = []
 
@@ -180,7 +180,7 @@ class CodeInspector:
         return functions
 
     @staticmethod
-    def validate_syntax(source: str) -> tuple[bool, Optional[str]]:
+    def validate_syntax(source: str) -> tuple[bool, str | None]:
         """
         Validate Python syntax without executing code.
 
@@ -204,7 +204,7 @@ class CodeInspector:
             return (False, f"Unexpected error: {str(e)}")
 
     @staticmethod
-    def format_structure_summary(inspection: Dict[str, Any]) -> str:
+    def format_structure_summary(inspection: dict[str, Any]) -> str:
         """
         Format inspection results into a human-readable summary.
 
@@ -268,7 +268,7 @@ class CodeInspector:
 
 
 # Convenience function for quick validation
-def validate_python_syntax(source: str) -> tuple[bool, Optional[str]]:
+def validate_python_syntax(source: str) -> tuple[bool, str | None]:
     """
     Validate Python syntax.
 

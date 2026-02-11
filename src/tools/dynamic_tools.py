@@ -11,14 +11,12 @@ Provides:
 
 import ast
 import importlib.util
-import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type
+from typing import Any
 
-from .base import BaseTool, ToolResult
 from ..core.config import Config
 from ..utils.code_inspector import CodeInspector
-
+from .base import BaseTool, ToolResult
 
 # Dangerous modules/functions to block
 BLOCKED_IMPORTS = {
@@ -127,7 +125,7 @@ class ToolValidator:
         return True, ""
 
     @staticmethod
-    def inspect_file_content(source: str) -> Dict[str, Any]:
+    def inspect_file_content(source: str) -> dict[str, Any]:
         """Helper to inspect source code content."""
         try:
             tree = ast.parse(source)
@@ -158,7 +156,7 @@ class ToolValidator:
         return {"success": True, "classes": classes, "functions": functions}
 
     @staticmethod
-    def validate_tool_schema(schema: Dict[str, Any]) -> tuple[bool, str]:
+    def validate_tool_schema(schema: dict[str, Any]) -> tuple[bool, str]:
         """
         Validate a tool schema definition.
 
@@ -208,8 +206,8 @@ class DynamicToolLoader:
         """
         self.config = config
         self._registry = registry  # Central registry for single source of truth
-        self._loaded_tools: Dict[str, BaseTool] = {}
-        self._tool_schemas: Dict[str, Dict[str, Any]] = {}
+        self._loaded_tools: dict[str, BaseTool] = {}
+        self._tool_schemas: dict[str, dict[str, Any]] = {}
 
         # Use config's custom_tools_dir if set, otherwise use default
         if hasattr(config, 'custom_tools_dir') and config.custom_tools_dir:
@@ -243,7 +241,7 @@ class DynamicToolLoader:
 
         return self.CUSTOM_TOOLS_DIR
 
-    def load_all_tools(self) -> List[BaseTool]:
+    def load_all_tools(self) -> list[BaseTool]:
         """
         Load all custom tools from the custom_tools directory.
 
@@ -267,7 +265,7 @@ class DynamicToolLoader:
 
         return loaded
 
-    def _load_tool_from_file(self, tool_file: Path) -> Optional[BaseTool]:
+    def _load_tool_from_file(self, tool_file: Path) -> BaseTool | None:
         """
         Load a single tool from a Python file.
 
@@ -327,11 +325,11 @@ class DynamicToolLoader:
         self._loaded_tools[tool.get_name()] = tool
         return tool
 
-    def get_tool_schemas(self) -> List[Dict[str, Any]]:
+    def get_tool_schemas(self) -> list[dict[str, Any]]:
         """Get schemas for all loaded custom tools."""
         return list(self._tool_schemas.values())
 
-    def save_tool(self, name: str, source: str, schema: Dict[str, Any]) -> tuple[bool, str]:
+    def save_tool(self, name: str, source: str, schema: dict[str, Any]) -> tuple[bool, str]:
         """
         Save a new custom tool to disk.
 
@@ -405,7 +403,7 @@ class CreateToolTool(BaseTool):
         """Return the tool name for registration."""
         return "create_tool"
 
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """
         Create a new custom tool.
 
@@ -457,7 +455,7 @@ class CreateToolTool(BaseTool):
                     f"Note: Use /reload-tools to refresh tool definitions if needed."
                 )
             else:
-                return ToolResult.fail(f"Tool saved but failed to load")
+                return ToolResult.fail("Tool saved but failed to load")
 
         except ValueError as e:
             return ToolResult.fail(f"Validation error: {e}")
@@ -465,7 +463,7 @@ class CreateToolTool(BaseTool):
             return ToolResult.fail(f"Error creating tool: {e}")
 
 
-def create_dynamic_tools(config: Config, registry=None) -> tuple[List[BaseTool], DynamicToolLoader]:
+def create_dynamic_tools(config: Config, registry=None) -> tuple[list[BaseTool], DynamicToolLoader]:
     """
     Create dynamic tool system components.
 

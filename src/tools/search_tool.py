@@ -8,10 +8,10 @@ Provides pattern-based codebase search capabilities using regex.
 
 import re
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
-from .base import BaseTool, ToolResult
 from ..core.config import Config
+from .base import BaseTool, ToolResult
 
 
 class GrepCodebaseTool(BaseTool):
@@ -20,7 +20,7 @@ class GrepCodebaseTool(BaseTool):
     def get_name(self) -> str:
         return "grep_codebase"
 
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """
         Execute grep_codebase to search for patterns across files.
 
@@ -78,7 +78,7 @@ class GrepCodebaseTool(BaseTool):
 
                 # Read and search file
                 try:
-                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                    with open(file_path, encoding="utf-8", errors="ignore") as f:
                         lines = f.readlines()
 
                     file_matches = []
@@ -151,6 +151,6 @@ class GrepCodebaseTool(BaseTool):
             return ToolResult.fail(f"Error during search: {str(e)}")
 
 
-def create_search_tools(config: Config) -> List[BaseTool]:
+def create_search_tools(config: Config) -> list[BaseTool]:
     """Create all search tools."""
     return [GrepCodebaseTool(config)]

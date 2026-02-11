@@ -15,7 +15,7 @@ from src.core.config import Config
 from src.tools.lifecycle_tools import (
     TaskCompletedTool,
     TaskCompletionSignal,
-    create_lifecycle_tools
+    create_lifecycle_tools,
 )
 
 
@@ -193,8 +193,9 @@ class TestToolIntegration:
 
     def test_tool_execution_via_executor(self):
         """Test executing tool through executor."""
-        from src.tools import create_tool_executor
         import json
+
+        from src.tools import create_tool_executor
 
         config = Config()
         executor = create_tool_executor(config)

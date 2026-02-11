@@ -7,8 +7,9 @@ Tests for critical bug fixes in context management:
 """
 
 import pytest
-from src.core.context_manager import ContextManager
+
 from src.core.config import Config
+from src.core.context_manager import ContextManager
 
 
 class TestDynamicTokenThresholds:

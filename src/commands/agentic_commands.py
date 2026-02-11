@@ -8,10 +8,10 @@ Commands for planning, reflection, self-improvement, and multi-agent coordinatio
 
 import time
 
-from .base import BaseCommand, CommandResult
 from ..core.tool_utils import handle_tool_calls
 from ..ui.console import get_console
 from ..utils.async_utils import InterruptiblePoller
+from .base import BaseCommand, CommandResult
 
 
 class PlanCommand(BaseCommand):
@@ -45,7 +45,7 @@ class PlanCommand(BaseCommand):
 
         try:
             # Get AI response (should trigger planning tool)
-            from ..ui.console import display_thinking_indicator, display_assistant_response
+            from ..ui.console import display_assistant_response, display_thinking_indicator
             display_thinking_indicator()
             response = session.get_response()
 
@@ -94,7 +94,7 @@ class ImproveCommand(BaseCommand):
 
     def execute(self, user_input: str, session) -> CommandResult:
         """Execute improve command."""
-        args = self.extract_arguments(user_input)
+        self.extract_arguments(user_input)
         console = get_console()
 
         console.print("[cyan]🔍 Analyzing recent episodes for improvement opportunities...[/cyan]")
@@ -102,7 +102,7 @@ class ImproveCommand(BaseCommand):
         # Get episode statistics
         stats = session.episodic_memory.get_statistics()
 
-        console.print(f"\n[bold]Episode Statistics:[/bold]")
+        console.print("\n[bold]Episode Statistics:[/bold]")
         console.print(f"  Total episodes: {stats['total_episodes']}")
         console.print(f"  Completed: {stats['completed_episodes']}")
         console.print(f"  Successful: {stats['successful_episodes']}")
@@ -212,7 +212,7 @@ class SpawnCommand(BaseCommand):
 
         try:
             # Get AI response for validation/enhancement
-            from ..ui.console import display_thinking_indicator, display_assistant_response
+            from ..ui.console import display_assistant_response, display_thinking_indicator
             display_thinking_indicator()
             response = session.get_response()
 
@@ -271,7 +271,7 @@ class SpawnCommand(BaseCommand):
                 return CommandResult(should_continue=True)
 
             console.print(f"[dim]Agent {agent_id} spawned in background. Waiting for results...[/dim]")
-            console.print(f"[dim]Press Ctrl+C to cancel waiting[/dim]")
+            console.print("[dim]Press Ctrl+C to cancel waiting[/dim]")
 
             # Wait for agent to complete and post results on blackboard
             from ..tools.multiagent_tool import BlackboardCommunication
@@ -487,7 +487,7 @@ class OrchestrateCommand(BaseCommand):
 
         goal = args.strip()
 
-        console.print(f"[cyan]🎭 Orchestrating agents for complex task...[/cyan]")
+        console.print("[cyan]🎭 Orchestrating agents for complex task...[/cyan]")
         console.print(f"[dim]Goal: {goal}[/dim]\n")
 
         # Start an episode for this orchestration
@@ -500,7 +500,7 @@ class OrchestrateCommand(BaseCommand):
 
         try:
             # Get AI response (should trigger orchestrate tool)
-            from ..ui.console import display_thinking_indicator, display_assistant_response
+            from ..ui.console import display_assistant_response, display_thinking_indicator
             display_thinking_indicator()
             response = session.get_response()
 

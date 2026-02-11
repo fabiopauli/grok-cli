@@ -8,11 +8,10 @@ Handles background shell commands and process tracking.
 
 import subprocess
 import threading
-import time
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -24,11 +23,11 @@ class BackgroundJob:
     shell_type: str  # 'bash' or 'powershell'
     process: subprocess.Popen
     started_at: datetime
-    output_buffer: List[str] = field(default_factory=list)
-    error_buffer: List[str] = field(default_factory=list)
+    output_buffer: list[str] = field(default_factory=list)
+    error_buffer: list[str] = field(default_factory=list)
     status: str = "running"  # running, completed, failed, killed
-    exit_code: Optional[int] = None
-    cwd: Optional[Path] = None
+    exit_code: int | None = None
+    cwd: Path | None = None
 
     def is_running(self) -> bool:
         """Check if the job is still running."""
@@ -65,7 +64,7 @@ class BackgroundProcessManager:
 
     def __init__(self):
         """Initialize the background process manager."""
-        self.jobs: Dict[int, BackgroundJob] = {}
+        self.jobs: dict[int, BackgroundJob] = {}
         self.next_job_id = 1
         self._lock = threading.Lock()
 
@@ -73,7 +72,7 @@ class BackgroundProcessManager:
         self,
         command: str,
         shell_type: str = "bash",
-        cwd: Optional[Path] = None
+        cwd: Path | None = None
     ) -> int:
         """
         Start a background job.
@@ -139,7 +138,7 @@ class BackgroundProcessManager:
 
         return job_id
 
-    def _capture_output(self, job: BackgroundJob, stream, buffer: List[str]):
+    def _capture_output(self, job: BackgroundJob, stream, buffer: list[str]):
         """Capture output from a stream to a buffer."""
         try:
             for line in stream:
@@ -148,12 +147,12 @@ class BackgroundProcessManager:
         except:
             pass
 
-    def get_job(self, job_id: int) -> Optional[BackgroundJob]:
+    def get_job(self, job_id: int) -> BackgroundJob | None:
         """Get a job by ID."""
         with self._lock:
             return self.jobs.get(job_id)
 
-    def list_jobs(self) -> List[BackgroundJob]:
+    def list_jobs(self) -> list[BackgroundJob]:
         """List all jobs."""
         with self._lock:
             return list(self.jobs.values())
@@ -165,7 +164,7 @@ class BackgroundProcessManager:
             return job.kill()
         return False
 
-    def get_job_output(self, job_id: int, include_errors: bool = True) -> Dict[str, Any]:
+    def get_job_output(self, job_id: int, include_errors: bool = True) -> dict[str, Any]:
         """
         Get job output.
 

@@ -15,8 +15,8 @@ from prompt_toolkit.styles import Style as PromptStyle
 
 # Rich console imports
 from rich.console import Console
-from rich.panel import Panel
 from rich.markdown import Markdown
+from rich.panel import Panel
 
 # Global console instance
 _console = Console()
@@ -218,7 +218,7 @@ def display_assistant_response(response_content: str, enable_markdown: bool = Fa
             # Create Markdown object with custom theme for code blocks
             md = Markdown(response_content, code_theme=code_theme)
             _console.print(md)
-        except Exception as e:
+        except Exception:
             # Graceful fallback to plain text if markdown rendering fails
             _console.print("[dim yellow]Warning: Markdown rendering failed, showing plain text[/dim yellow]")
             _console.print(f"Assistant: {response_content}")

@@ -7,13 +7,12 @@ Tests the composition root that manages all application dependencies.
 """
 
 import os
+
 import pytest
-from pathlib import Path
 
 from src.core.app_context import AppContext
 from src.core.config import Config
-from src.ui.adapter import UIProtocol, RichUIAdapter, MockUIAdapter
-
+from src.ui.adapter import MockUIAdapter, RichUIAdapter
 
 # Skip production tests if no API key is set
 requires_api_key = pytest.mark.skipif(

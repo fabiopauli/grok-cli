@@ -6,24 +6,23 @@ System commands for Grok Assistant
 Commands that handle system-level operations like exit, clear, help, etc.
 """
 
-from typing import Dict, Any
 
-from .base import BaseCommand, CommandResult
 from ..core.session import GrokSession
+from .base import BaseCommand, CommandResult
 
 
 class ExitCommand(BaseCommand):
     """Handle /exit and /quit commands."""
-    
+
     def get_pattern(self) -> str:
         return "/exit"
-    
+
     def get_description(self) -> str:
         return "Exit the application (/exit or /quit)"
-    
+
     def matches(self, user_input: str) -> bool:
         return user_input.strip().lower() in ("/exit", "/quit")
-    
+
     def execute(self, user_input: str, session: GrokSession) -> CommandResult:
         from ..ui.console import get_console
         console = get_console()
@@ -33,16 +32,16 @@ class ExitCommand(BaseCommand):
 
 class ClearScreenCommand(BaseCommand):
     """Handle /cls command to clear screen."""
-    
+
     def get_pattern(self) -> str:
         return "/cls"
-    
+
     def get_description(self) -> str:
         return "Clear the screen"
-    
+
     def matches(self, user_input: str) -> bool:
         return user_input.strip().lower() == "/cls"
-    
+
     def execute(self, user_input: str, session: GrokSession) -> CommandResult:
         from ..ui.console import get_console
         console = get_console()
@@ -52,36 +51,36 @@ class ClearScreenCommand(BaseCommand):
 
 class ClearContextCommand(BaseCommand):
     """Handle /clear command to clear conversation context."""
-    
+
     def get_pattern(self) -> str:
         return "/clear"
-    
+
     def get_description(self) -> str:
         return "Clear conversation history"
-    
+
     def matches(self, user_input: str) -> bool:
         return user_input.strip().lower() == "/clear"
-    
+
     def execute(self, user_input: str, session: GrokSession) -> CommandResult:
         from ..ui.console import get_console, get_prompt_session
-        
+
         console = get_console()
         prompt_session = get_prompt_session()
-        
+
         conversation_history = session.get_conversation_history()
-        
+
         if len(conversation_history) <= 1:
             console.print("[yellow]Context already empty (only system prompt).[/yellow]")
             return CommandResult.ok()
-            
+
         file_contexts = sum(1 for msg in conversation_history if msg["role"] == "system" and "User added file" in msg["content"])
         total_messages = len(conversation_history) - 1
-        
+
         console.print(f"[yellow]Current context: {total_messages} messages, {file_contexts} file contexts[/yellow]")
-        
+
         # Confirm with user
         confirm = prompt_session.prompt("🔵 Are you sure you want to clear the context? (y/N): ", default="n").strip().lower()
-        
+
         if confirm in ["y", "yes"]:
             session.clear_context(keep_system_prompt=True)
             console.print("[bold green]✓[/bold green] Context cleared (system prompt retained)")
@@ -93,22 +92,23 @@ class ClearContextCommand(BaseCommand):
 
 class HelpCommand(BaseCommand):
     """Handle /help command to show available commands."""
-    
+
     def get_pattern(self) -> str:
         return "/help"
-    
+
     def get_description(self) -> str:
         return "Show available commands and usage information"
-    
+
     def matches(self, user_input: str) -> bool:
         return user_input.strip().lower() == "/help"
-    
+
     def execute(self, user_input: str, session: GrokSession) -> CommandResult:
-        from ..ui.console import get_console
         from rich.panel import Panel
-        
+
+        from ..ui.console import get_console
+
         console = get_console()
-        
+
         help_text = f"""
 **Grok Assistant** - Your AI-powered development companion with advanced agentic reasoning
 
@@ -194,48 +194,49 @@ Use run_bash_background or run_powershell_background for long-running tasks in t
 
 class OsCommand(BaseCommand):
     """Handle /os command to show OS information."""
-    
+
     def get_pattern(self) -> str:
         return "/os"
-    
+
     def get_description(self) -> str:
         return "Show OS and environment information"
-    
+
     def matches(self, user_input: str) -> bool:
         return user_input.strip().lower() == "/os"
-    
+
     def execute(self, user_input: str, session: GrokSession) -> CommandResult:
-        from ..ui.console import get_console
         from rich.table import Table
-        
+
+        from ..ui.console import get_console
+
         console = get_console()
         os_info = self.config.os_info
-        
+
         # Create OS information table
         os_table = Table(title="🖥️ Operating System Information", show_header=True, header_style="bold bright_blue")
         os_table.add_column("Property", style="bright_cyan")
         os_table.add_column("Value", style="white")
-        
+
         os_table.add_row("System", os_info['system'])
         os_table.add_row("Release", os_info['release'])
         os_table.add_row("Version", os_info['version'])
         os_table.add_row("Machine", os_info['machine'])
         os_table.add_row("Processor", os_info['processor'])
         os_table.add_row("Python Version", os_info['python_version'])
-        
+
         console.print(os_table)
-        
+
         # Create shell availability table
         shell_table = Table(title="🐚 Shell Availability", show_header=True, header_style="bold bright_green")
         shell_table.add_column("Shell", style="bright_cyan")
         shell_table.add_column("Available", style="white")
-        
+
         for shell, available in os_info['shell_available'].items():
             status = "✅ Available" if available else "❌ Not Available"
             shell_table.add_row(shell, status)
-        
+
         console.print(shell_table)
-        
+
         # Show current working directory
         console.print(f"\n📁 Current Working Directory: [bright_cyan]{self.config.base_dir}[/bright_cyan]")
 
@@ -328,7 +329,7 @@ class MaxStepsCommand(BaseCommand):
         if not args:
             current = self.config.max_reasoning_steps
             if current >= 999999:
-                console.print(f"[cyan]Current maximum reasoning steps: Unlimited[/cyan]")
+                console.print("[cyan]Current maximum reasoning steps: Unlimited[/cyan]")
             else:
                 console.print(f"[cyan]Current maximum reasoning steps: {current}[/cyan]")
             console.print("[dim]Usage: /max-steps <number> or /max-steps unlimited[/dim]")
@@ -370,8 +371,9 @@ class JobsCommand(BaseCommand):
         return user_input.strip().lower() == "/jobs"
 
     def execute(self, user_input: str, session: GrokSession) -> CommandResult:
-        from ..ui.console import get_console
         from rich.table import Table
+
+        from ..ui.console import get_console
 
         console = get_console()
 

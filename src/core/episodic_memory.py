@@ -11,7 +11,7 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from ..utils.logging_config import get_logger
 from .config import Config
@@ -151,7 +151,7 @@ class EpisodicMemoryManager:
         self.directory_episodes: dict[str, list[Episode]] = {}
 
         # Current active episode
-        self.current_episode: Optional[Episode] = None
+        self.current_episode: Episode | None = None
 
         # File paths
         self.global_episodes_file = Path.home() / ".grok_global_episodes.json"
@@ -212,7 +212,7 @@ class EpisodicMemoryManager:
             self.current_episode.add_reflection(reflection)
             self._save_episodes()
 
-    def complete_current_episode(self, outcome: str, success: bool) -> Optional[str]:
+    def complete_current_episode(self, outcome: str, success: bool) -> str | None:
         """
         Complete the current episode.
 
@@ -233,7 +233,7 @@ class EpisodicMemoryManager:
         return None
 
     def get_episodes(
-        self, scope: Optional[str] = None, limit: int = 10, successful_only: bool = False
+        self, scope: str | None = None, limit: int = 10, successful_only: bool = False
     ) -> list[Episode]:
         """
         Get episodes.

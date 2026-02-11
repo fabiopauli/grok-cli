@@ -10,14 +10,12 @@ Tests the complete task completion workflow including:
 - Context clearing vs preservation
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
 import json
+from unittest.mock import Mock, patch
 
+from src.core.tool_utils import handle_task_completion_interaction, handle_tool_calls
 from src.core.config import Config
 from src.core.session import GrokSession
-from src.tools import TaskCompletionSignal
-from main import handle_task_completion_interaction, handle_tool_calls
 
 
 class TestTaskCompletionInteraction:
@@ -38,8 +36,8 @@ class TestTaskCompletionInteraction:
         session.clear_context = Mock()
         return session
 
-    @patch('main.get_console')
-    @patch('main.get_prompt_session')
+    @patch('src.core.tool_utils.get_console')
+    @patch('src.core.tool_utils.get_prompt_session')
     def test_below_threshold_just_acknowledges(self, mock_prompt, mock_console):
         """Test that below threshold only shows acknowledgment."""
         session = self.create_mock_session(token_count=50000)  # Below 128k
@@ -61,8 +59,8 @@ class TestTaskCompletionInteraction:
             "\n[green]✓ Task completed:[/green] Feature implemented successfully"
         )
 
-    @patch('main.get_console')
-    @patch('main.get_prompt_session')
+    @patch('src.core.tool_utils.get_console')
+    @patch('src.core.tool_utils.get_prompt_session')
     def test_below_threshold_shows_next_steps(self, mock_prompt, mock_console):
         """Test that next steps are shown when provided."""
         session = self.create_mock_session(token_count=50000)
@@ -83,8 +81,8 @@ class TestTaskCompletionInteraction:
             "[dim]Suggested next steps: Consider adding tests[/dim]\n"
         )
 
-    @patch('main.get_console')
-    @patch('main.get_prompt_session')
+    @patch('src.core.tool_utils.get_console')
+    @patch('src.core.tool_utils.get_prompt_session')
     def test_above_threshold_prompts_user(self, mock_prompt, mock_console):
         """Test that above threshold prompts user."""
         session = self.create_mock_session(token_count=150000)  # Above 128k
@@ -96,7 +94,7 @@ class TestTaskCompletionInteraction:
         prompt_session.prompt.return_value = "n"  # User says no
         mock_prompt.return_value = prompt_session
 
-        result = handle_task_completion_interaction(
+        handle_task_completion_interaction(
             session,
             "Large task completed"
         )
@@ -110,8 +108,8 @@ class TestTaskCompletionInteraction:
         # Should ask user
         prompt_session.prompt.assert_called_once()
 
-    @patch('main.get_console')
-    @patch('main.get_prompt_session')
+    @patch('src.core.tool_utils.get_console')
+    @patch('src.core.tool_utils.get_prompt_session')
     def test_user_chooses_yes_clears_context(self, mock_prompt, mock_console):
         """Test that 'y' clears context."""
         session = self.create_mock_session(token_count=150000)
@@ -136,8 +134,8 @@ class TestTaskCompletionInteraction:
             "[green]✓ Context cleared. Memories and system prompt preserved.[/green]\n"
         )
 
-    @patch('main.get_console')
-    @patch('main.get_prompt_session')
+    @patch('src.core.tool_utils.get_console')
+    @patch('src.core.tool_utils.get_prompt_session')
     def test_user_chooses_yes_uppercase(self, mock_prompt, mock_console):
         """Test that 'Y' (uppercase) clears context."""
         session = self.create_mock_session(token_count=150000)
@@ -154,8 +152,8 @@ class TestTaskCompletionInteraction:
         assert result is True
         session.clear_context.assert_called_once()
 
-    @patch('main.get_console')
-    @patch('main.get_prompt_session')
+    @patch('src.core.tool_utils.get_console')
+    @patch('src.core.tool_utils.get_prompt_session')
     def test_user_chooses_yes_full_word(self, mock_prompt, mock_console):
         """Test that 'yes' clears context."""
         session = self.create_mock_session(token_count=150000)
@@ -172,8 +170,8 @@ class TestTaskCompletionInteraction:
         assert result is True
         session.clear_context.assert_called_once()
 
-    @patch('main.get_console')
-    @patch('main.get_prompt_session')
+    @patch('src.core.tool_utils.get_console')
+    @patch('src.core.tool_utils.get_prompt_session')
     def test_empty_input_defaults_to_yes(self, mock_prompt, mock_console):
         """Test that empty input (Enter) defaults to yes."""
         session = self.create_mock_session(token_count=150000)
@@ -191,8 +189,8 @@ class TestTaskCompletionInteraction:
         assert result is True
         session.clear_context.assert_called_once()
 
-    @patch('main.get_console')
-    @patch('main.get_prompt_session')
+    @patch('src.core.tool_utils.get_console')
+    @patch('src.core.tool_utils.get_prompt_session')
     def test_user_chooses_no_preserves_context(self, mock_prompt, mock_console):
         """Test that 'n' preserves context."""
         session = self.create_mock_session(token_count=150000)
@@ -212,8 +210,8 @@ class TestTaskCompletionInteraction:
         # Should show preservation message
         console.print.assert_any_call("[dim]Context preserved.[/dim]\n")
 
-    @patch('main.get_console')
-    @patch('main.get_prompt_session')
+    @patch('src.core.tool_utils.get_console')
+    @patch('src.core.tool_utils.get_prompt_session')
     def test_user_chooses_no_full_word(self, mock_prompt, mock_console):
         """Test that 'no' preserves context."""
         session = self.create_mock_session(token_count=150000)
@@ -230,8 +228,8 @@ class TestTaskCompletionInteraction:
         assert result is False
         session.clear_context.assert_not_called()
 
-    @patch('main.get_console')
-    @patch('main.get_prompt_session')
+    @patch('src.core.tool_utils.get_console')
+    @patch('src.core.tool_utils.get_prompt_session')
     def test_keyboard_interrupt_preserves_context(self, mock_prompt, mock_console):
         """Test that Ctrl+C preserves context."""
         session = self.create_mock_session(token_count=150000)
@@ -251,8 +249,8 @@ class TestTaskCompletionInteraction:
         # Should show keeping context message
         console.print.assert_any_call("\n[dim]Keeping context.[/dim]")
 
-    @patch('main.get_console')
-    @patch('main.get_prompt_session')
+    @patch('src.core.tool_utils.get_console')
+    @patch('src.core.tool_utils.get_prompt_session')
     def test_eof_error_preserves_context(self, mock_prompt, mock_console):
         """Test that EOF preserves context."""
         session = self.create_mock_session(token_count=150000)
@@ -269,8 +267,8 @@ class TestTaskCompletionInteraction:
         assert result is False
         session.clear_context.assert_not_called()
 
-    @patch('main.get_console')
-    @patch('main.get_prompt_session')
+    @patch('src.core.tool_utils.get_console')
+    @patch('src.core.tool_utils.get_prompt_session')
     def test_displays_token_count(self, mock_prompt, mock_console):
         """Test that token count is displayed to user."""
         session = self.create_mock_session(token_count=156789)
@@ -303,9 +301,9 @@ class TestHandleToolCallsIntegration:
         response.tool_calls = [tool_call]
         return response
 
-    @patch('main.handle_task_completion_interaction')
-    @patch('main.display_tool_call')
-    @patch('main.get_console')
+    @patch('src.core.tool_utils.handle_task_completion_interaction')
+    @patch('src.ui.console.display_tool_call')
+    @patch('src.core.tool_utils.get_console')
     def test_task_completed_signal_caught_and_handled(
         self, mock_console, mock_display, mock_interaction
     ):
@@ -343,11 +341,11 @@ class TestHandleToolCallsIntegration:
 
         # Verify result was returned
         assert len(results) == 1
-        assert "Task completed" in results[0]
+        assert "Task completed" in results[0][1]
 
-    @patch('main.handle_task_completion_interaction')
-    @patch('main.display_tool_call')
-    @patch('main.get_console')
+    @patch('src.core.tool_utils.handle_task_completion_interaction')
+    @patch('src.ui.console.display_tool_call')
+    @patch('src.core.tool_utils.get_console')
     def test_multiple_tools_with_task_completed(
         self, mock_console, mock_display, mock_interaction
     ):
@@ -385,7 +383,7 @@ class TestHandleToolCallsIntegration:
         # In real scenario, we'd mock the file system
         # For this test, we expect task_completed to be handled
         try:
-            results = handle_tool_calls(response, executor, session)
+            handle_tool_calls(response, executor, session)
         except Exception:
             # read_file might fail, but task_completed should still be caught
             pass
@@ -397,8 +395,8 @@ class TestHandleToolCallsIntegration:
 class TestConfigurationIntegration:
     """Test that configuration values are respected."""
 
-    @patch('main.get_console')
-    @patch('main.get_prompt_session')
+    @patch('src.core.tool_utils.get_console')
+    @patch('src.core.tool_utils.get_prompt_session')
     def test_custom_threshold_respected(self, mock_prompt, mock_console):
         """Test that custom token threshold is respected."""
         session = Mock(spec=GrokSession)
@@ -420,8 +418,8 @@ class TestConfigurationIntegration:
             "\n[green]✓ Task completed:[/green] Done"
         )
 
-    @patch('main.get_console')
-    @patch('main.get_prompt_session')
+    @patch('src.core.tool_utils.get_console')
+    @patch('src.core.tool_utils.get_prompt_session')
     def test_threshold_zero_always_prompts(self, mock_prompt, mock_console):
         """Test that threshold of 0 always prompts."""
         session = Mock(spec=GrokSession)
@@ -440,7 +438,7 @@ class TestConfigurationIntegration:
         mock_prompt.return_value = prompt_session
 
         # Should always prompt when threshold is 0
-        result = handle_task_completion_interaction(session, "Done")
+        handle_task_completion_interaction(session, "Done")
 
         prompt_session.prompt.assert_called_once()
 
@@ -448,8 +446,8 @@ class TestConfigurationIntegration:
 class TestEdgeCases:
     """Test edge cases in the workflow."""
 
-    @patch('main.get_console')
-    @patch('main.get_prompt_session')
+    @patch('src.core.tool_utils.get_console')
+    @patch('src.core.tool_utils.get_prompt_session')
     def test_empty_summary_handled(self, mock_prompt, mock_console):
         """Test that empty summary is handled gracefully."""
         session = Mock(spec=GrokSession)
@@ -466,8 +464,8 @@ class TestEdgeCases:
         # Should still print something
         assert console.print.called
 
-    @patch('main.get_console')
-    @patch('main.get_prompt_session')
+    @patch('src.core.tool_utils.get_console')
+    @patch('src.core.tool_utils.get_prompt_session')
     def test_very_long_summary_displayed(self, mock_prompt, mock_console):
         """Test that very long summaries are displayed."""
         session = Mock(spec=GrokSession)
@@ -479,14 +477,14 @@ class TestEdgeCases:
 
         long_summary = "x" * 1000
 
-        result = handle_task_completion_interaction(session, long_summary)
+        handle_task_completion_interaction(session, long_summary)
 
         # Should display the long summary
         printed = str(console.print.call_args_list)
         assert long_summary in printed
 
-    @patch('main.get_console')
-    @patch('main.get_prompt_session')
+    @patch('src.core.tool_utils.get_console')
+    @patch('src.core.tool_utils.get_prompt_session')
     def test_unicode_in_summary(self, mock_prompt, mock_console):
         """Test that Unicode characters in summary work."""
         session = Mock(spec=GrokSession)
@@ -498,7 +496,7 @@ class TestEdgeCases:
 
         summary = "Task done 🎉 with émojis"
 
-        result = handle_task_completion_interaction(session, summary)
+        handle_task_completion_interaction(session, summary)
 
         # Should handle Unicode
         printed = str(console.print.call_args_list)

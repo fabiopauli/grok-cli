@@ -8,18 +8,19 @@ Provides the foundation for implementing tool handlers.
 
 import json
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any
+
 from ..core.config import Config
 
 
 class ToolResult:
     """Result of a tool execution."""
-    
-    def __init__(self, success: bool, result: str, error: Optional[str] = None):
+
+    def __init__(self, success: bool, result: str, error: str | None = None):
         self.success = success
         self.result = result
         self.error = error
-    
+
     @classmethod
     def ok(cls, result: str) -> 'ToolResult':
         """Create a successful result."""
@@ -49,7 +50,7 @@ class BaseTool(ABC):
         pass
 
     @abstractmethod
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """Execute the tool with given arguments."""
         pass
 
@@ -94,7 +95,7 @@ class ToolExecutor:
     def __init__(self, config: Config):
         """Initialize the tool executor."""
         self.config = config
-        self.tools: Dict[str, BaseTool] = {}
+        self.tools: dict[str, BaseTool] = {}
 
     def register_tool(self, tool: BaseTool) -> None:
         """Register a tool handler."""
@@ -112,8 +113,8 @@ class ToolExecutor:
         for tool in self.tools.values():
             if hasattr(tool, 'set_context_manager'):
                 tool.set_context_manager(context_manager)
-    
-    def execute_tool_call(self, tool_call_dict: Dict[str, Any]) -> str:
+
+    def execute_tool_call(self, tool_call_dict: dict[str, Any]) -> str:
         """
         Execute a function call from the LLM.
 

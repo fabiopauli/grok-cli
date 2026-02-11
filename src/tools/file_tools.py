@@ -8,11 +8,11 @@ Handles file reading, writing, and editing operations.
 
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
-from .base import BaseTool, ToolResult
+from ..utils.file_utils import apply_fuzzy_diff_edit, safe_file_read
 from ..utils.path_utils import normalize_path
-from ..utils.file_utils import safe_file_read, apply_fuzzy_diff_edit
+from .base import BaseTool, ToolResult
 
 
 class ReadFileTool(BaseTool):
@@ -21,8 +21,8 @@ class ReadFileTool(BaseTool):
     def get_name(self) -> str:
         """Return the tool name for registration."""
         return "read_file"
-    
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """Execute read_file with enhanced error handling."""
         try:
             norm_path = normalize_path(args["file_path"], self.config)
@@ -44,40 +44,40 @@ class ReadFileTool(BaseTool):
             max_tokens = self.config.get_max_tokens_for_model(current_model)
             max_file_tokens = int(max_tokens * 0.6)
             max_file_size = max_file_tokens * 4  # Convert tokens to approximate bytes
-            
+
             # Use safe_file_read for comprehensive handling
             read_result = safe_file_read(norm_path, max_size=max_file_size, config=self.config)
-            
+
             if not read_result['success']:
                 error_msg = read_result['error']
                 error_type = read_result['file_info'].get('error_type', 'Unknown')
-                
+
                 # Provide helpful error messages based on error type
                 if 'binary' in error_msg.lower():
                     file_type = read_result['file_info'].get('detection', {}).get('file_type', 'unknown')
                     return ToolResult.fail(f"Error: Cannot read binary file '{norm_path}' as text.\nFile type: {file_type}\nSuggestion: This appears to be a binary file. If you need to examine it, consider using a hex editor or file-specific tools.")
-                    
+
                 elif 'exceeds limit' in error_msg:
                     file_size_kb = read_result['file_info'].get('size_kb', 0)
                     return ToolResult.fail(f"Error: File '{norm_path}' is too large ({file_size_kb:.1f}KB) to read safely.\nCurrent limit: {max_file_size/1024:.1f}KB for model {current_model}\nSuggestion: Try reading specific sections of the file or use a streaming approach for large files.")
-                    
+
                 elif 'permission denied' in error_msg.lower():
                     return ToolResult.fail(f"Error: Permission denied accessing '{norm_path}'.\nSuggestion: Check file permissions or run with appropriate access rights.")
-                    
+
                 elif 'not found' in error_msg.lower():
                     return ToolResult.fail(f"Error: File not found: '{norm_path}'.\nSuggestion: Check the file path and ensure the file exists.")
-                    
+
                 elif 'locked' in error_msg.lower():
                     return ToolResult.fail(f"Error: File '{norm_path}' is currently in use by another process.\nSuggestion: Close any applications that might be using this file and try again.")
-                    
+
                 else:
                     return ToolResult.fail(f"Error reading file '{norm_path}': {error_msg}\nError type: {error_type}")
-            
+
             # Add warnings to output if any
             warnings_text = ""
             if read_result['warnings']:
                 warnings_text = f"\nWarnings: {'; '.join(read_result['warnings'])}"
-            
+
             # Add encoding information if confidence is low
             encoding_info = ""
             encoding_data = read_result['encoding_info']
@@ -95,19 +95,19 @@ class ReadFileTool(BaseTool):
             else:
                 # Verbose format (for debugging)
                 return ToolResult.ok(f"Content of file '{norm_path}':{warnings_text}{encoding_info}\n\n{read_result['content']}")
-            
+
         except Exception as e:
             return ToolResult.fail(f"Unexpected error reading file '{args.get('file_path', 'unknown')}': {str(e)}\nSuggestion: Check the file path and try again.")
 
 
 class ReadMultipleFilesTool(BaseTool):
     """Handle read_multiple_files function calls."""
-    
+
     def get_name(self) -> str:
         """Return the tool name for registration."""
         return "read_multiple_files"
-    
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """Execute read_multiple_files with size limits."""
         response_data = {
             "files_read": {},
@@ -116,7 +116,7 @@ class ReadMultipleFilesTool(BaseTool):
             "metadata": {}
         }
         total_content_size = 0
-        
+
         # Get model-specific context limit for multiple files
         current_model = self.config.current_model
         max_tokens = self.config.get_max_tokens_for_model(current_model)
@@ -143,17 +143,17 @@ class ReadMultipleFilesTool(BaseTool):
 
                 # Use safe_file_read for comprehensive handling
                 read_result = safe_file_read(norm_path, max_size=max_single_file_size, config=self.config)
-                
+
                 if not read_result['success']:
                     response_data["errors"][fp] = read_result['error']
                     continue
-                
+
                 # Check total size limit
                 content_size = len(read_result['content'])
                 if total_content_size + content_size > max_total_size:
                     response_data["errors"][fp] = f"Would exceed total size limit ({max_total_size/1024:.1f}KB)"
                     continue
-                
+
                 total_content_size += content_size
                 response_data["files_read"][fp] = read_result['content']
 
@@ -164,10 +164,10 @@ class ReadMultipleFilesTool(BaseTool):
                 # Collect warnings
                 if read_result['warnings']:
                     response_data["warnings"][fp] = read_result['warnings']
-                
+
             except Exception as e:
                 response_data["errors"][fp] = f"Unexpected error: {str(e)}"
-        
+
         response_data["metadata"]["total_size_kb"] = total_content_size / 1024
         response_data["metadata"]["files_processed"] = len(args["file_paths"])
         response_data["metadata"]["files_read"] = len(response_data["files_read"])
@@ -181,12 +181,12 @@ class ReadMultipleFilesTool(BaseTool):
 
 class CreateFileTool(BaseTool):
     """Handle create_file function calls."""
-    
+
     def get_name(self) -> str:
         """Return the tool name for registration."""
         return "create_file"
-    
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """Execute create_file with validation."""
         try:
             norm_path = normalize_path(args["file_path"], self.config)
@@ -228,29 +228,29 @@ class CreateFileTool(BaseTool):
 
 class CreateMultipleFilesTool(BaseTool):
     """Handle create_multiple_files function calls."""
-    
+
     def get_name(self) -> str:
         """Return the tool name for registration."""
         return "create_multiple_files"
-    
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """Execute create_multiple_files with validation."""
         created_files = []
         errors = []
-        
+
         for file_info in args["files"]:
             try:
                 norm_path = normalize_path(file_info["path"], self.config)
                 content = file_info["content"]
-                
+
                 # Validate content size
                 if len(content) > self.config.max_file_content_size_create:
                     errors.append(f"'{file_info['path']}': Content too large ({len(content)} chars)")
                     continue
-                
+
                 # Create parent directories if needed
                 Path(norm_path).parent.mkdir(parents=True, exist_ok=True)
-                
+
                 # Write file
                 with open(norm_path, 'w', encoding='utf-8') as f:
                     f.write(content)
@@ -260,22 +260,22 @@ class CreateMultipleFilesTool(BaseTool):
                     self.context_manager.refresh_mounted_file_if_exists(norm_path)
 
                 created_files.append(norm_path)
-                
+
             except Exception as e:
                 errors.append(f"'{file_info['path']}': {str(e)}")
-        
+
         # Prepare response
         response_parts = []
         if created_files:
             response_parts.append(f"Successfully created {len(created_files)} files:")
             for file_path in created_files:
                 response_parts.append(f"  - {file_path}")
-        
+
         if errors:
             response_parts.append(f"\nErrors ({len(errors)}):")
             for error in errors:
                 response_parts.append(f"  - {error}")
-        
+
         return ToolResult.ok("\n".join(response_parts))
 
 
@@ -286,7 +286,7 @@ class EditFileTool(BaseTool):
         """Return the tool name for registration."""
         return "edit_file"
 
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """Execute edit_file with fuzzy matching support."""
         try:
             norm_path = normalize_path(args["file_path"], self.config)
@@ -308,12 +308,12 @@ class EditFileTool(BaseTool):
 
 class ChangeWorkingDirectoryTool(BaseTool):
     """Handle change_working_directory function calls."""
-    
+
     def get_name(self) -> str:
         """Return the tool name for registration."""
         return "change_working_directory"
-    
-    def execute(self, args: Dict[str, Any]) -> ToolResult:
+
+    def execute(self, args: dict[str, Any]) -> ToolResult:
         """Execute change_working_directory to change the current working directory."""
         try:
             from ..services.directory_service import DirectoryService

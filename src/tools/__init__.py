@@ -4,23 +4,22 @@ Tools module for Grok Assistant
 Contains tool execution handlers for AI function calls.
 """
 
-from .base import BaseTool, ToolResult, ToolExecutor
-from .file_tools import create_file_tools
-from .shell_tools import create_shell_tools
-from .memory_tool import MemoryTool, ListMemoriesTool, RemoveMemoryTool
-from .search_tool import create_search_tools
-from .inspector_tool import create_inspector_tools
-from .editor_tool import create_editor_tools
-from .task_tools import create_task_tools
+from ..core.config import Config
+from .base import BaseTool, ToolExecutor, ToolResult
 from .code_execution_tool import create_code_execution_tools
-from .dynamic_tools import create_dynamic_tools, DynamicToolLoader
-from .tool_registry import ToolRegistry
-from .lifecycle_tools import create_lifecycle_tools, TaskCompletionSignal
-from .planning_tool import create_planning_tools
+from .dynamic_tools import DynamicToolLoader, create_dynamic_tools
+from .editor_tool import create_editor_tools
+from .file_tools import create_file_tools
+from .inspector_tool import create_inspector_tools
+from .lifecycle_tools import TaskCompletionSignal, create_lifecycle_tools
+from .memory_tool import ListMemoriesTool, MemoryTool, RemoveMemoryTool
 from .multiagent_tool import create_multiagent_tools
 from .orchestrator_tool import create_orchestrator_tools
-
-from ..core.config import Config
+from .planning_tool import create_planning_tools
+from .search_tool import create_search_tools
+from .shell_tools import create_shell_tools
+from .task_tools import create_task_tools
+from .tool_registry import ToolRegistry
 
 
 def create_tool_executor(config: Config, memory_manager=None, task_manager=None, context_manager=None, client=None) -> ToolExecutor:
@@ -145,7 +144,7 @@ def create_tool_registry(config: Config, memory_manager=None, task_manager=None,
     registry = ToolRegistry(config)
 
     # Get the executor from the registry
-    executor = registry.get_executor()
+    registry.get_executor()
 
     # Register all tools with the executor (schema registration is separate)
     # Note: Static tools get schemas from config.get_tools()

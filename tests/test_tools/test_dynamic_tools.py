@@ -4,20 +4,19 @@ Unit tests for dynamic tool system (self-evolving AI tools).
 Tests ToolValidator, DynamicToolLoader, and CreateToolTool.
 """
 
-import pytest
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
-from src.tools.dynamic_tools import (
-    ToolValidator,
-    DynamicToolLoader,
-    CreateToolTool,
-    create_dynamic_tools
-)
-from src.tools.base import ToolResult
+import pytest
+
 from src.core.config import Config
+from src.tools.dynamic_tools import (
+    CreateToolTool,
+    DynamicToolLoader,
+    ToolValidator,
+    create_dynamic_tools,
+)
 
 
 class TestToolValidator:
@@ -203,7 +202,7 @@ class TestDynamicToolLoader:
         # Create loader
         config = Config()
         config.custom_tools_dir = temp_tools_dir
-        loader = DynamicToolLoader(config)
+        DynamicToolLoader(config)
 
         # Directory should be created
         assert temp_tools_dir.exists()

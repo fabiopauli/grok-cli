@@ -14,12 +14,13 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
+
 from filelock import FileLock
 
-from .base import BaseTool, ToolResult
 from ..core.config import Config
 from ..utils.logging_config import get_logger
+from .base import BaseTool, ToolResult
 
 
 class AgentRole:
@@ -159,9 +160,8 @@ class BlackboardCommunication:
         """Read blackboard data with file locking to prevent race conditions."""
         lock = FileLock(self.lock_path, timeout=10)
         try:
-            with lock:
-                with open(self.blackboard_path, encoding="utf-8") as f:
-                    return json.load(f)
+            with lock, open(self.blackboard_path, encoding="utf-8") as f:
+                return json.load(f)
         except (json.JSONDecodeError, FileNotFoundError):
             self._initialize_blackboard()
             return self._read_blackboard()
@@ -169,9 +169,8 @@ class BlackboardCommunication:
     def _write_blackboard(self, data: dict) -> None:
         """Write blackboard data with file locking to prevent race conditions."""
         lock = FileLock(self.lock_path, timeout=10)
-        with lock:
-            with open(self.blackboard_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
+        with lock, open(self.blackboard_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
 
     def post_message(self, agent_id: str, message: str, message_type: str = "info") -> None:
         """
@@ -195,7 +194,7 @@ class BlackboardCommunication:
         self.logger.debug(f"Agent {agent_id} posted message: {message[:50]}...")
 
     def get_messages(
-        self, since: Optional[float] = None, message_type: Optional[str] = None
+        self, since: float | None = None, message_type: str | None = None
     ) -> list[dict]:
         """
         Get messages from blackboard.

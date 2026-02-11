@@ -15,10 +15,8 @@ Test Coverage:
 6. Backward compatibility with text summaries
 """
 
-import pytest
 from datetime import datetime
 
-from src.core.config import Config
 from src.core.context_state import ContextState
 from src.core.truncation_strategy import TruncationStrategy
 from src.core.turn_logger import Turn, TurnEvent

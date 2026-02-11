@@ -15,9 +15,9 @@ This enables the AI to:
 
 import random
 import string
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional, Literal
+from typing import Literal
 
 from src.utils.logging_config import get_logger
 
@@ -47,7 +47,7 @@ class Task:
     status: TaskStatus
     priority: TaskPriority
     created: datetime
-    completed: Optional[datetime] = None
+    completed: datetime | None = None
 
     def to_dict(self) -> dict:
         """Convert task to dictionary for serialization."""
@@ -200,8 +200,8 @@ class TaskManager:
     def list_tasks(
         self,
         show_completed: bool = False,
-        priority: Optional[TaskPriority] = None,
-    ) -> List[Task]:
+        priority: TaskPriority | None = None,
+    ) -> list[Task]:
         """
         List tasks, optionally filtered by status and priority.
 

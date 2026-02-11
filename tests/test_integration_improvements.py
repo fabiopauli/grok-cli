@@ -6,15 +6,16 @@ Integration Tests for Context De-duplication and Circular Import Resolution
 End-to-end tests demonstrating the improvements work together correctly.
 """
 
-import pytest
 from pathlib import Path
 from unittest.mock import Mock
 
+import pytest
+
+from src.commands.file_commands import FolderCommand
 from src.core.config import Config
 from src.core.context_manager import ContextManager
-from src.tools.file_tools import ReadFileTool, ChangeWorkingDirectoryTool
-from src.commands.file_commands import FolderCommand
 from src.services.directory_service import DirectoryService
+from src.tools.file_tools import ChangeWorkingDirectoryTool, ReadFileTool
 
 
 @pytest.fixture
@@ -183,9 +184,9 @@ class TestCircularImportResolutionIntegration:
     def test_no_circular_import_between_tools_and_commands(self):
         """Verify tools don't import from commands."""
         # This should not raise any import errors
-        from src.tools.file_tools import ChangeWorkingDirectoryTool
         from src.commands.file_commands import FolderCommand
         from src.services.directory_service import DirectoryService
+        from src.tools.file_tools import ChangeWorkingDirectoryTool
 
         # All should import successfully
         assert ChangeWorkingDirectoryTool is not None

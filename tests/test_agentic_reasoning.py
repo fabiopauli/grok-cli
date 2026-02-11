@@ -6,16 +6,14 @@ Tests for agentic reasoning features
 Tests for planning, reflection, episodic memory, and multi-agent coordination.
 """
 
-import pytest
-import json
-from pathlib import Path
-from datetime import datetime
 
+import pytest
+
+from src.commands.agentic_commands import EpisodesCommand, ImproveCommand, PlanCommand, SpawnCommand
 from src.core.config import Config
 from src.core.episodic_memory import Episode, EpisodicMemoryManager
-from src.tools.planning_tool import GeneratePlanTool, ReflectTool
 from src.tools.multiagent_tool import BlackboardCommunication
-from src.commands.agentic_commands import PlanCommand, ImproveCommand, SpawnCommand, EpisodesCommand
+from src.tools.planning_tool import GeneratePlanTool, ReflectTool
 
 
 class TestEpisodicMemory:

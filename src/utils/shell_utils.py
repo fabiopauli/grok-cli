@@ -6,11 +6,9 @@ Shell utilities for Grok Assistant
 Handles shell command execution with security controls.
 """
 
-import os
-import subprocess
 import shutil
+import subprocess
 from pathlib import Path
-from typing import Optional, Union, Tuple
 
 from ..core.config import Config
 from ..utils.logging_config import get_logger
@@ -19,12 +17,12 @@ from ..utils.logging_config import get_logger
 def detect_available_shells(config: Config) -> None:
     """
     Detect which shells are available on the system.
-    
+
     Args:
         config: Configuration object to update
     """
     shells = ['bash', 'zsh', 'powershell', 'cmd']
-    
+
     for shell in shells:
         if shell == 'cmd' and config.os_info['is_windows']:
             # cmd is always available on Windows
@@ -32,7 +30,7 @@ def detect_available_shells(config: Config) -> None:
         elif shell == 'powershell':
             # Check for both Windows PowerShell and PowerShell Core
             config.os_info['shell_available'][shell] = (
-                shutil.which('powershell') is not None or 
+                shutil.which('powershell') is not None or
                 shutil.which('pwsh') is not None
             )
         else:
@@ -57,7 +55,7 @@ def log_dangerous_command(command: str, reason: str, executed: bool = False) -> 
 
 
 def run_bash_command(command: str, config: Config,
-                    cwd: Optional[Union[str, Path]] = None) -> str:
+                    cwd: str | Path | None = None) -> str:
     """
     Execute a bash command with security confirmation.
 
@@ -81,7 +79,7 @@ def run_bash_command(command: str, config: Config,
         if not config.agent_mode:
             # Always require confirmation for dangerous commands
             console = get_console()
-            console.print(f"[bold red]⚠️  DANGEROUS COMMAND DETECTED[/bold red]")
+            console.print("[bold red]⚠️  DANGEROUS COMMAND DETECTED[/bold red]")
             console.print(f"[yellow]Reason: {reason}[/yellow]")
 
             if not display_security_confirmation(command, "bash"):
@@ -94,11 +92,11 @@ def run_bash_command(command: str, config: Config,
     if config.require_bash_confirmation and not config.agent_mode and not is_dangerous:
         if not display_security_confirmation(command, "bash"):
             return "Command execution cancelled by user."
-    
+
     # Set working directory
     if cwd is None:
         cwd = config.base_dir
-    
+
     try:
         # Use bash explicitly to ensure consistent behavior
         result = subprocess.run(
@@ -132,7 +130,7 @@ def run_bash_command(command: str, config: Config,
             output_parts.append(f"Exit code: {result.returncode}")
 
         return "\n".join(output_parts) if output_parts else "Command completed with no output."
-        
+
     except subprocess.TimeoutExpired:
         return f"Error: Command timed out after 30 seconds: {command}"
     except FileNotFoundError:
@@ -173,16 +171,16 @@ def truncate_shell_output(output: str, max_lines: int, max_chars: int) -> str:
     return "\n".join(truncated)
 
 
-def run_powershell_command(command: str, config: Config, 
-                          cwd: Optional[Union[str, Path]] = None) -> str:
+def run_powershell_command(command: str, config: Config,
+                          cwd: str | Path | None = None) -> str:
     """
     Execute a PowerShell command with security confirmation.
-    
+
     Args:
         command: Command to execute
         config: Configuration object
         cwd: Working directory
-        
+
     Returns:
         Command output
     """
@@ -193,15 +191,15 @@ def run_powershell_command(command: str, config: Config,
     if config.require_powershell_confirmation and not config.agent_mode:
         if not display_security_confirmation(command, "powershell"):
             return "Command execution cancelled by user."
-    
+
     # Set working directory
     if cwd is None:
         cwd = config.base_dir
-    
+
     try:
         # Try PowerShell Core first (pwsh), then Windows PowerShell
         powershell_exe = 'pwsh' if shutil.which('pwsh') else 'powershell'
-        
+
         # Use -Command parameter for better compatibility
         result = subprocess.run(
             [powershell_exe, '-Command', command],
@@ -234,7 +232,7 @@ def run_powershell_command(command: str, config: Config,
             output_parts.append(f"Exit code: {result.returncode}")
 
         return "\n".join(output_parts) if output_parts else "Command completed with no output."
-        
+
     except subprocess.TimeoutExpired:
         return f"Error: Command timed out after 30 seconds: {command}"
     except FileNotFoundError:
@@ -246,10 +244,10 @@ def run_powershell_command(command: str, config: Config,
 def get_shell_for_os(config: Config) -> str:
     """
     Get the appropriate shell for the current OS.
-    
+
     Args:
         config: Configuration object
-        
+
     Returns:
         Shell name
     """
@@ -263,7 +261,7 @@ def get_shell_for_os(config: Config) -> str:
             return 'bash'
         elif config.os_info['shell_available']['zsh']:
             return 'zsh'
-    
+
     return 'unknown'
 
 
@@ -312,44 +310,44 @@ def is_dangerous_command(command: str) -> tuple[bool, str]:
 def sanitize_command(command: str) -> str:
     """
     Sanitize a command by removing dangerous elements.
-    
+
     Args:
         command: Command to sanitize
-        
+
     Returns:
         Sanitized command
     """
     # Remove null bytes
     command = command.replace('\x00', '')
-    
+
     # Remove control characters
     command = ''.join(char for char in command if ord(char) >= 32 or char in '\t\n\r')
-    
+
     # Limit length
     if len(command) > 1000:
         command = command[:1000]
-    
+
     return command.strip()
 
 
-def validate_working_directory(cwd: Union[str, Path], config: Config) -> bool:
+def validate_working_directory(cwd: str | Path, config: Config) -> bool:
     """
     Validate that a working directory is safe to use.
-    
+
     Args:
         cwd: Working directory path
         config: Configuration object
-        
+
     Returns:
         True if directory is safe, False otherwise
     """
     try:
         cwd_path = Path(cwd).resolve()
-        
+
         # Check if directory exists
         if not cwd_path.exists() or not cwd_path.is_dir():
             return False
-        
+
         # Check if directory is within base directory
         try:
             cwd_path.relative_to(config.base_dir)
@@ -357,6 +355,6 @@ def validate_working_directory(cwd: Union[str, Path], config: Config) -> bool:
         except ValueError:
             # Directory is outside base directory
             return False
-    
+
     except (OSError, ValueError):
         return False
