@@ -95,8 +95,8 @@ class ToolRegistry:
         """Get the tool executor."""
         return self._executor
 
-    def execute_tool_call(self, tool_call_dict: dict[str, Any]) -> str:
-        """Execute a tool call through the executor."""
+    def execute_tool_call(self, tool_call_dict: dict[str, Any]):
+        """Execute a tool call through the executor. Returns ToolResult."""
         return self._executor.execute_tool_call(tool_call_dict)
 
     def refresh_dynamic_tools(self, loader) -> int:

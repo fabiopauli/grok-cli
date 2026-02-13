@@ -1,7 +1,9 @@
-import json
+import logging
 
 from src.tools import TaskCompletionSignal
 from src.ui import display_tool_call, get_console, get_prompt_session
+
+logger = logging.getLogger(__name__)
 
 
 def handle_tool_calls(response, tool_executor, session, enable_reflection=True):
@@ -14,10 +16,9 @@ def handle_tool_calls(response, tool_executor, session, enable_reflection=True):
             # Display tool call
             display_tool_call(tool_call.function.name, {})
 
-            tool_success = True
             try:
-                # Execute tool call
-                result = tool_executor.execute_tool_call(
+                # Execute tool call - returns ToolResult with structured success/failure
+                tool_result = tool_executor.execute_tool_call(
                     {
                         "function": {
                             "name": tool_call.function.name,
@@ -26,9 +27,8 @@ def handle_tool_calls(response, tool_executor, session, enable_reflection=True):
                     }
                 )
 
-                # Check if result indicates failure
-                if isinstance(result, str) and (result.startswith("Error") or "failed" in result.lower()):
-                    tool_success = False
+                tool_success = tool_result.success
+                result_text = tool_result.result
 
             except TaskCompletionSignal as signal:
                 # Task completion signal caught - add tool result first
@@ -49,45 +49,9 @@ def handle_tool_calls(response, tool_executor, session, enable_reflection=True):
                 # Continue processing remaining tools if any
                 continue
 
-            # Auto-mount files when read by AI
-            if tool_call.function.name == "read_file":
-                # Parse arguments to get file path
-                try:
-                    args = json.loads(tool_call.function.arguments)
-                    file_path = args.get("file_path")
-                    if file_path and not result.startswith("Error"):
-                        # Track file in context to prevent duplicate reads
-                        if hasattr(session.context_manager, 'add_file_to_context'):
-                            session.context_manager.add_file_to_context(file_path)
-
-                        # Extract content from result (format: "Content of file '...':\n\n&lt;content&gt;")
-                        content_marker = "\n\n"
-                        if content_marker in result:
-                            content = result.split(content_marker, 1)[1]
-                            # Mount the file to context
-                            session.mount_file(file_path, content)
-                            console.print(f"[dim]→ Mounted '{file_path}' to context[/dim]")
-                except (json.JSONDecodeError, Exception):
-                    pass  # If we can't mount, just continue
-
-            elif tool_call.function.name == "read_multiple_files":
-                # Parse result to get successfully read files
-                try:
-                    result_data = json.loads(result)
-                    files_read = result_data.get("files_read", {})
-                    for file_path, content in files_read.items():
-                        # Track file in context to prevent duplicate reads
-                        if hasattr(session.context_manager, 'add_file_to_context'):
-                            session.context_manager.add_file_to_context(file_path)
-                        session.mount_file(file_path, content)
-                    if files_read:
-                        console.print(f"[dim]→ Mounted {len(files_read)} files to context[/dim]")
-                except (json.JSONDecodeError, Exception):
-                    pass  # If we can't mount, just continue
-
             # Add tool result to session with proper tool name
-            session.add_message("tool", result, tool_name=tool_call.function.name)
-            tool_results.append((tool_call.function.name, result))
+            session.add_message("tool", result_text, tool_name=tool_call.function.name)
+            tool_results.append((tool_call.function.name, result_text))
 
             # Display tool success/failure (brief)
             if tool_success:
@@ -100,7 +64,7 @@ def handle_tool_calls(response, tool_executor, session, enable_reflection=True):
                     session.episodic_memory.add_action_to_current_episode(
                         action_type="tool_call",
                         description=f"{tool_call.function.name}: {tool_call.function.arguments[:100]}...",
-                        result=result[:200],
+                        result=result_text[:200],
                         success=False
                     )
 

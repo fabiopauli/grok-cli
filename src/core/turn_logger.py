@@ -188,7 +188,9 @@ class TurnLogger:
 
     def _track_file_operations(self, tool_name: str, result: str) -> None:
         """
-        Track file operations based on tool usage.
+        Track file operations based on tool usage and result content.
+
+        Extracts file paths from structured result patterns produced by the tool layer.
 
         Args:
             tool_name: Name of the tool
@@ -197,48 +199,61 @@ class TurnLogger:
         if self.current_turn is None:
             return
 
-        # Extract file paths from common file operations
-        if tool_name in ["read_file", "read_multiple_files"]:
-            # For read operations, try to extract file paths from the result
-            self._extract_file_paths_from_read(result)
+        if tool_name == "read_file":
+            self._extract_file_path_from_result(result, "read")
+        elif tool_name == "read_multiple_files":
+            self._extract_multiple_files_from_result(result, "read")
+        elif tool_name == "create_file":
+            self._extract_file_path_from_result(result, "create")
+        elif tool_name == "create_multiple_files":
+            self._extract_multiple_files_from_result(result, "create")
+        elif tool_name in ("edit_file", "search_replace_file", "apply_diff_patch"):
+            self._extract_file_path_from_result(result, "modify")
 
-        elif tool_name in ["create_file", "create_multiple_files"]:
-            # For create operations, mark files as created
-            self._extract_file_paths_from_create(result)
+    def _extract_file_path_from_result(self, result: str, operation: str) -> None:
+        """
+        Extract a single file path from a tool result string.
 
-        elif tool_name in ["edit_file"]:
-            # For edit operations, mark files as modified
-            self._extract_file_paths_from_edit(result)
+        Matches patterns like:
+          "File created successfully: '/path/to/file'"
+          "File edited successfully: '/path/to/file'"
+          "Content of file '/path/to/file':"
 
-    def _extract_file_paths_from_read(self, result: str) -> None:
-        """Extract file paths from read operation results."""
-        # This is a simplified implementation
-        # In practice, you might want more sophisticated parsing
-        if "File:" in result or "Reading file:" in result:
-            # Try to extract file path from result
-            lines = result.split('\n')
-            for line in lines:
-                if line.strip().startswith("File:") or line.strip().startswith("Reading file:"):
-                    # Extract file path (this is simplified)
-                    parts = line.split(':')
-                    if len(parts) > 1:
-                        file_path = parts[1].strip()
-                        if file_path and file_path not in self.current_turn.files_read:
-                            self.current_turn.files_read.append(file_path)
+        Args:
+            result: Tool result string
+            operation: Operation type ('read', 'create', 'modify')
+        """
+        if self.current_turn is None or not result:
+            return
 
-    def _extract_file_paths_from_create(self, result: str) -> None:
-        """Extract file paths from create operation results."""
-        if "created" in result.lower() or "Created" in result:
-            # This is simplified - in practice, you'd parse the actual file paths
-            # from the tool arguments or result
-            pass
+        import re
+        # Match quoted file paths in common result patterns
+        match = re.search(r"'([^']+)'", result)
+        if match:
+            file_path = match.group(1)
+            self.track_file_operation(operation, file_path)
 
-    def _extract_file_paths_from_edit(self, result: str) -> None:
-        """Extract file paths from edit operation results."""
-        if "edited" in result.lower() or "modified" in result.lower():
-            # This is simplified - in practice, you'd parse the actual file paths
-            # from the tool arguments or result
-            pass
+    def _extract_multiple_files_from_result(self, result: str, operation: str) -> None:
+        """
+        Extract file paths from a multi-file tool result (JSON format).
+
+        Args:
+            result: JSON result string from read_multiple_files or create_multiple_files
+            operation: Operation type ('read', 'create')
+        """
+        if self.current_turn is None or not result:
+            return
+
+        import json
+        try:
+            data = json.loads(result)
+            # read_multiple_files returns {"files_read": {path: content, ...}}
+            if "files_read" in data:
+                for file_path in data["files_read"]:
+                    self.track_file_operation(operation, file_path)
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            # Fall back to single-path extraction
+            self._extract_file_path_from_result(result, operation)
 
     def track_file_operation(self, operation: str, file_path: str) -> None:
         """
@@ -291,8 +306,6 @@ class TurnLogger:
 
         # Count different types of events
         user_messages = len([e for e in self.current_turn.events if e.type == "user_message"])
-        len([e for e in self.current_turn.events if e.type == "assistant_message"])
-        len([e for e in self.current_turn.events if e.type == "tool_call"])
 
         # Build summary based on what happened
         parts = []
