@@ -270,6 +270,8 @@ class TestSlidingWindowTruncation:
         """Test that multiple compressions merge summaries."""
         config = Config()
         config.min_preserved_turns = 2
+        # Use text-based summarization (legacy) for this test
+        config.use_structured_state = False
         strategy = TruncationStrategy(config)
 
         # First compression (4 turns, each ~50 tokens = ~200 tokens total)
@@ -304,7 +306,9 @@ class TestSlidingWindowTruncation:
 
         # Panic mode should keep only summary + last turn
         assert len(result) <= 2
-        assert result[0].turn_id == "compressed_history"
+        # With structured state (default), compressed turn ID is "compressed_state"
+        # With text-based summarization, it's "compressed_history"
+        assert result[0].turn_id in ("compressed_history", "compressed_state")
         if len(result) == 2:
             assert result[1].turn_id == "turn_005"
 
