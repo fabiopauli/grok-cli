@@ -31,10 +31,6 @@ class ToolResult:
         """Create an error result."""
         return cls(success=False, result=error, error=error)
 
-    # Backward compatibility aliases (deprecated)
-    success = ok
-    error = fail
-
 
 class BaseTool(ABC):
     """Base class for all tool handlers."""
@@ -53,6 +49,16 @@ class BaseTool(ABC):
     def execute(self, args: dict[str, Any]) -> ToolResult:
         """Execute the tool with given arguments."""
         pass
+
+    def get_schema(self) -> dict[str, Any] | None:
+        """
+        Return the JSON schema definition for this tool.
+
+        Override in subclasses to co-locate schema with implementation.
+        Returns None if this tool's schema is defined elsewhere (legacy).
+        Schema format: {"name": str, "description": str, "parameters": dict}
+        """
+        return None
 
     def set_context_manager(self, context_manager) -> None:
         """
@@ -101,6 +107,20 @@ class ToolExecutor:
         """Register a tool handler."""
         self.tools[tool.get_name()] = tool
 
+    def get_tool_schemas(self) -> list[dict[str, Any]]:
+        """
+        Collect tool schemas from all registered tools that define get_schema().
+
+        Returns:
+            List of tool schema dicts for tools that co-locate their schemas.
+        """
+        schemas = []
+        for tool in self.tools.values():
+            schema = tool.get_schema()
+            if schema is not None:
+                schemas.append(schema)
+        return schemas
+
     def inject_context_manager(self, context_manager) -> None:
         """
         Inject context manager into all registered tools.
@@ -114,7 +134,7 @@ class ToolExecutor:
             if hasattr(tool, 'set_context_manager'):
                 tool.set_context_manager(context_manager)
 
-    def execute_tool_call(self, tool_call_dict: dict[str, Any]) -> str:
+    def execute_tool_call(self, tool_call_dict: dict[str, Any]) -> ToolResult:
         """
         Execute a function call from the LLM.
 
@@ -122,11 +142,13 @@ class ToolExecutor:
             tool_call_dict: Dictionary containing function call information
 
         Returns:
-            String result of the function execution
+            ToolResult with structured success/failure information
 
         Raises:
             TaskCompletionSignal: When task_completed tool is called (let it propagate)
         """
+        from .lifecycle_tools import TaskCompletionSignal
+
         func_name = "unknown_function"
         try:
             func_name = tool_call_dict["function"]["name"]
@@ -135,17 +157,15 @@ class ToolExecutor:
             # Find and execute the appropriate tool
             if func_name in self.tools:
                 tool = self.tools[func_name]
-                result = tool.execute(args)
-                return result.result
+                return tool.execute(args)
             else:
-                return f"Error: Unknown function '{func_name}'. Available functions: {list(self.tools.keys())}"
+                return ToolResult.fail(
+                    f"Error: Unknown function '{func_name}'. Available functions: {list(self.tools.keys())}"
+                )
 
+        except TaskCompletionSignal:
+            raise
         except json.JSONDecodeError as e:
-            return f"Error: Invalid JSON in function arguments for '{func_name}': {str(e)}"
+            return ToolResult.fail(f"Error: Invalid JSON in function arguments for '{func_name}': {str(e)}")
         except Exception as e:
-            # Let TaskCompletionSignal propagate (don't catch it)
-            # Import here to avoid circular dependency
-            from .lifecycle_tools import TaskCompletionSignal
-            if isinstance(e, TaskCompletionSignal):
-                raise
-            return f"Error executing function '{func_name}': {str(e)}"
+            return ToolResult.fail(f"Error executing function '{func_name}': {str(e)}")

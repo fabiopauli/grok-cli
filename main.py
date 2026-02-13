@@ -12,7 +12,6 @@ Supports two modes:
 
 import argparse
 import contextlib
-import json
 import sys
 
 from dotenv import load_dotenv
@@ -21,14 +20,13 @@ from src.commands import create_command_registry
 from src.core.app_context import AppContext
 from src.core.config import Config
 from src.core.session import GrokSession
-from src.core.tool_utils import handle_task_completion_interaction
-from src.tools import TaskCompletionSignal, create_tool_executor
+from src.core.tool_utils import handle_tool_calls as _handle_tool_calls
+from src.tools import create_tool_executor
 from src.ui import (
     display_assistant_response,
     display_error,
     display_startup_banner,
     display_thinking_indicator,
-    display_tool_call,
     get_console,
     get_prompt_indicator,
     get_prompt_session,
@@ -80,6 +78,7 @@ def initialize_application() -> AppContext:
 def handle_tool_calls(response, tool_executor, session, enable_reflection=True):
     """
     Handle tool calls from the AI response.
+    Delegates to src.core.tool_utils.handle_tool_calls.
 
     Args:
         response: Response from AI
@@ -88,110 +87,9 @@ def handle_tool_calls(response, tool_executor, session, enable_reflection=True):
         enable_reflection: Enable reflection on failures (default: True)
 
     Returns:
-        List of tool results
+        List of (tool_name, result_text) tuples
     """
-    console = get_console()
-    tool_results = []
-
-    if hasattr(response, "tool_calls") and response.tool_calls:
-        for tool_call in response.tool_calls:
-            # Display tool call
-            display_tool_call(tool_call.function.name, {})
-
-            tool_success = True
-            try:
-                # Execute tool call
-                result = tool_executor.execute_tool_call(
-                    {
-                        "function": {
-                            "name": tool_call.function.name,
-                            "arguments": tool_call.function.arguments,
-                        }
-                    }
-                )
-
-                # Check if result indicates failure
-                if isinstance(result, str) and (result.startswith("Error") or "failed" in result.lower()):
-                    tool_success = False
-
-            except TaskCompletionSignal as signal:
-                # Task completion signal caught - add tool result first
-                session.add_message(
-                    "tool",
-                    f"Task completed: {signal.summary}",
-                    tool_name="task_completed"
-                )
-                tool_results.append(f"Task completed: {signal.summary}")
-
-                # Then trigger user interaction
-                handle_task_completion_interaction(
-                    session,
-                    signal.summary,
-                    signal.next_steps
-                )
-
-                # Continue processing remaining tools if any
-                continue
-
-            # Auto-mount files when read by AI
-            if tool_call.function.name == "read_file":
-                # Parse arguments to get file path
-                try:
-                    args = json.loads(tool_call.function.arguments)
-                    file_path = args.get("file_path")
-                    if file_path and not result.startswith("Error"):
-                        # Track file in context to prevent duplicate reads
-                        if hasattr(session.context_manager, 'add_file_to_context'):
-                            session.context_manager.add_file_to_context(file_path)
-
-                        # Extract content from result (format: "Content of file '...':\n\n<content>")
-                        content_marker = "\n\n"
-                        if content_marker in result:
-                            content = result.split(content_marker, 1)[1]
-                            # Mount the file to context
-                            session.mount_file(file_path, content)
-                            console.print(f"[dim]→ Mounted '{file_path}' to context[/dim]")
-                except (json.JSONDecodeError, Exception):
-                    pass  # If we can't mount, just continue
-
-            elif tool_call.function.name == "read_multiple_files":
-                # Parse result to get successfully read files
-                try:
-                    import json as json_module
-
-                    result_data = json_module.loads(result)
-                    files_read = result_data.get("files_read", {})
-                    for file_path, content in files_read.items():
-                        # Track file in context to prevent duplicate reads
-                        if hasattr(session.context_manager, 'add_file_to_context'):
-                            session.context_manager.add_file_to_context(file_path)
-                        session.mount_file(file_path, content)
-                    if files_read:
-                        console.print(f"[dim]→ Mounted {len(files_read)} files to context[/dim]")
-                except (json.JSONDecodeError, Exception):
-                    pass  # If we can't mount, just continue
-
-            # Add tool result to session with proper tool name
-            session.add_message("tool", result, tool_name=tool_call.function.name)
-            tool_results.append(result)
-
-            # Display tool success/failure (brief)
-            if tool_success:
-                console.print(f"[dim]✓ {tool_call.function.name} completed[/dim]")
-            else:
-                console.print(f"[yellow]⚠ {tool_call.function.name} completed with warnings/errors[/yellow]")
-
-                # Add reflection on failure if enabled
-                if enable_reflection and session.episodic_memory.current_episode:
-                    session.episodic_memory.add_action_to_current_episode(
-                        action_type="tool_call",
-                        description=f"{tool_call.function.name}: {tool_call.function.arguments[:100]}...",
-                        result=result[:200],
-                        success=False
-                    )
-                    # Trigger reflection via agent (could enhance with explicit reflect tool call)
-
-    return tool_results
+    return _handle_tool_calls(response, tool_executor, session, enable_reflection)
 
 
 

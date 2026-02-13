@@ -39,9 +39,9 @@ class TruncationStrategy:
         self.config = config
         # Make sliding window size configurable
         self.min_preserved_turns = getattr(config, 'min_preserved_turns', 3)
-        # Structured summarization disabled by default for backward compatibility
-        # Set config.use_structured_state = True to enable (recommended)
-        self.use_structured_state = getattr(config, 'use_structured_state', False)
+        # Structured state compression enabled by default for better context preservation.
+        # Prevents entropy accumulation during repeated text-based summarizations.
+        self.use_structured_state = getattr(config, 'use_structured_state', True)
 
     def truncate_turns(
         self,
